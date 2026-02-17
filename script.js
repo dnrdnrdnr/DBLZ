@@ -45,7 +45,8 @@ function setupEventListeners() {
   });
   document.getElementById('startCategorizeBtn').addEventListener('click', startCategorize);
   document.getElementById('clearBrainDumpBtn').addEventListener('click', clearBrainDump);
-  
+  document.getElementById('brainDumpDateBtn').addEventListener('click', openDatePickerModal);
+
   // 분류 모달 버튼
   document.getElementById('nextStepBtn').addEventListener('click', nextCategorizeStep);
   document.getElementById('cancelCategorizeBtn').addEventListener('click', () => {
@@ -106,6 +107,8 @@ function setupEventListeners() {
         modal.querySelector('.modal-content')?.classList.remove('categorize-modal-one-screen');
         modal.querySelector('.drag-drop-container')?.classList.remove('mobile-stack-layout');
         updateTrashButton();
+      } else if (modal.id === 'datePickerModal') {
+        modal.classList.remove('active');
       } else {
         closeModals();
       }
@@ -208,77 +211,121 @@ function formatTimeDisplay(isoString) {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
-// Brain dump 아이템 추가
+// 날짜 짧게 표시 (오른쪽 라벨용, ISO 문자열 → M/D)
+function formatDateShort(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return m + '/' + day;
+}
+
+// Brain dump 아이템 추가 (선택한 날짜에 추가)
 function addBrainDumpItem() {
   const input = document.getElementById('brainDumpInput');
   const text = input.value.trim();
-  
   if (!text) return;
-  
-  const today = getTodayDateString();
-  if (!appData.brainDumpHistory[today]) {
-    appData.brainDumpHistory[today] = [];
-  }
-  
-  // 여러 줄 입력 지원
+  if (!selectedDumpDate) selectedDumpDate = getTodayDateString();
+  const dateStr = selectedDumpDate;
+  if (!appData.brainDumpHistory[dateStr]) appData.brainDumpHistory[dateStr] = [];
+
   const lines = text.split('\n').filter(line => line.trim());
-  
+  const today = getTodayDateString();
   lines.forEach(line => {
     if (line.trim()) {
       const dateAdded = new Date().toISOString();
-      const item = {
-        id: Date.now() + Math.random(),
-        text: line.trim(),
-        dateAdded: dateAdded
-      };
-      appData.brainDump.push(item);
-      appData.brainDumpHistory[today].push(item);
+      const item = { id: Date.now() + Math.random(), text: line.trim(), dateAdded };
+      appData.brainDumpHistory[dateStr].push(item);
+      if (dateStr === today) appData.brainDump.push(item);
     }
   });
-  
+
   input.value = '';
   updateBrainDumpView();
   updateBrainDumpBanner();
   saveData();
 }
 
-// Brain dump 뷰 업데이트
-function updateBrainDumpView() {
-  const todayEl = document.getElementById('brainDumpTodayDate');
-  if (todayEl) {
-    todayEl.innerHTML = formatDateDisplay(getTodayDateString()) + ' <span class="today-badge">오늘</span>';
-  }
-  
+// 선택한 날짜에 해당하는 쏟아내기 목록 반환 (오늘은 live brainDump, 그 외는 히스토리)
+function getDumpListForDate(dateStr) {
+  const today = getTodayDateString();
+  const d = dateStr || today;
+  return d === today ? appData.brainDump : (appData.brainDumpHistory[d] || []);
+}
+
+// 선택한 날짜에 따른 버튼 라벨 (오늘 / 어제 / N일 전 / N일 후)
+function getDateButtonLabel(dateStr) {
+  if (!dateStr) return '오늘';
+  const today = getTodayDateString();
+  if (dateStr === today) return '오늘';
+  const a = new Date(dateStr + 'T12:00:00');
+  const b = new Date(getTodayDateString() + 'T12:00:00');
+  const diffDays = Math.round((b - a) / (24 * 60 * 60 * 1000));
+  if (diffDays === 1) return '어제';
+  if (diffDays > 1 && diffDays <= 7) return diffDays + '일 전';
+  if (diffDays > 7) return formatDateDisplay(dateStr);
+  if (diffDays === -1) return '내일';
+  if (diffDays < -1) return Math.abs(diffDays) + '일 후';
+  return formatDateDisplay(dateStr);
+}
+
+// 메인 상단 날짜 버튼 라벨 + 오늘 여부에 따라 입력란 표시
+function updateSelectedDateDisplay() {
+  if (!selectedDumpDate) selectedDumpDate = getTodayDateString();
+  const labelEl = document.getElementById('brainDumpDateBtnLabel');
+  const mainEl = document.getElementById('brainDumpMain');
+  const inputWrap = document.getElementById('brainDumpInputWrap');
+  const subtitleEl = document.getElementById('brainDumpSubtitle');
+  if (labelEl) labelEl.textContent = getDateButtonLabel(selectedDumpDate);
+  const today = getTodayDateString();
+  const isToday = selectedDumpDate === today;
+  if (mainEl) mainEl.classList.toggle('is-today', isToday);
+  if (inputWrap) inputWrap.style.display = isToday ? '' : 'none';
+  if (subtitleEl) subtitleEl.textContent = isToday
+    ? '할 일을 적고 추가한 뒤, 날짜 버튼을 눌러 다른 날을 확인할 수 있어요'
+    : '선택한 날짜에 쏟아낸 할 일이에요. 오늘을 누르면 새로 적을 수 있어요';
+}
+
+// 배너의 '쏟아낸 할일' 리스트 업데이트 (선택한 날짜 기준)
+function updateBrainDumpList() {
+  if (!selectedDumpDate) selectedDumpDate = getTodayDateString();
   const list = document.getElementById('brainDumpList');
   const startBtn = document.getElementById('startCategorizeBtn');
+  if (!list) return;
   
+  const items = getDumpListForDate(selectedDumpDate);
   list.innerHTML = '';
   
-  if (appData.brainDump.length === 0) {
-    startBtn.disabled = true;
-    return;
-  }
-  
-  startBtn.disabled = false;
-  
-  appData.brainDump.forEach(item => {
+  const today = getTodayDateString();
+  const canCategorize = selectedDumpDate === today && items.length > 0;
+  const isReadOnly = selectedDumpDate !== today;
+  if (startBtn) startBtn.disabled = !canCategorize;
+  list.classList.toggle('is-readonly', isReadOnly);
+
+  items.forEach(item => {
     const li = document.createElement('li');
-    const timeStr = item.dateAdded ? formatTimeDisplay(item.dateAdded) : '';
+    const dateStr = item.dateAdded ? formatDateShort(item.dateAdded) : '';
     li.innerHTML = `
       <span class="brain-dump-item-text">${escapeHtml(item.text)}</span>
-      <span class="brain-dump-item-date">${timeStr}</span>
-      <button class="remove-btn" data-id="${item.id}">삭제</button>
+      <span class="brain-dump-item-date">${dateStr}</span>
+      ${isReadOnly ? '' : `<button class="remove-btn" data-id="${item.id}">삭제</button>`}
     `;
-    
-    li.querySelector('.remove-btn').addEventListener('click', () => {
-      removeBrainDumpItem(item.id);
-    });
-    
+    if (!isReadOnly) {
+      const removeBtn = li.querySelector('.remove-btn');
+      if (removeBtn) removeBtn.addEventListener('click', () => removeBrainDumpItem(item.id));
+    }
     list.appendChild(li);
   });
 
   updateUnclassifiedDumpList();
   updateClassifiedDumpList();
+}
+
+// Brain dump 뷰 업데이트 (날짜 표시 + 배너 리스트)
+function updateBrainDumpView() {
+  if (!selectedDumpDate) selectedDumpDate = getTodayDateString();
+  updateSelectedDateDisplay();
+  updateBrainDumpList();
 }
 
 // 사이드바 '분류 안한 할일' 목록 업데이트
@@ -295,9 +342,9 @@ function updateUnclassifiedDumpList() {
   }
   appData.brainDump.forEach(item => {
     const li = document.createElement('li');
-    const timeStr = item.dateAdded ? formatTimeDisplay(item.dateAdded) : '';
+    const dateStr = item.dateAdded ? formatDateShort(item.dateAdded) : '';
     li.className = 'unclassified-dump-item';
-    li.innerHTML = `<span class="unclassified-dump-text">${escapeHtml(item.text)}</span><span class="unclassified-dump-time">${timeStr}</span>`;
+    li.innerHTML = `<span class="unclassified-dump-text">${escapeHtml(item.text)}</span><span class="unclassified-dump-date">${dateStr}</span>`;
     listEl.appendChild(li);
   });
 }
@@ -327,112 +374,170 @@ function updateClassifiedDumpList() {
     const todo = todoMap.get(String(item.id));
     const quadrant = todo ? (todo.quadrant || 4) : 4;
     const label = QUADRANT_LABELS[quadrant] || '비중요·비긴급';
+    const dateStr = item.dateAdded ? formatDateShort(item.dateAdded) : '';
     const li = document.createElement('li');
     li.className = 'classified-dump-item';
-    li.innerHTML = `<span class="classified-dump-text">${escapeHtml(item.text)}</span><span class="classified-dump-quadrant">${escapeHtml(label)}</span>`;
+    li.innerHTML = `<span class="classified-dump-text">${escapeHtml(item.text)}</span><span class="classified-dump-meta">${dateStr} ${escapeHtml(label)}</span>`;
     listEl.appendChild(li);
   });
 }
 
-// Brain dump 아이템 삭제 (휴지통으로 이동)
+// Brain dump 아이템 삭제 (선택한 날짜 목록에서 제거 후 휴지통으로)
 function removeBrainDumpItem(id) {
-  const item = appData.brainDump.find(item => item.id == id);
-  if (item) {
-    // todos 배열에 추가하고 휴지통으로 이동
-    const todo = {
-      id: item.id,
-      text: item.text,
-      quadrant: 4,
-      status: 'trash',
-      createdAt: new Date().toISOString(),
-      trashedAt: new Date().toISOString(),
-      dueDate: getDueDateForPeriod()
-    };
-    
-    const existingTodo = appData.todos.find(t => t.id == item.id);
-    if (existingTodo) {
-      existingTodo.status = 'trash';
-      existingTodo.trashedAt = new Date().toISOString();
-    } else {
-      appData.todos.push(todo);
-    }
-    
-    appData.brainDump = appData.brainDump.filter(i => i.id !== id);
-    const today = getTodayDateString();
-    if (appData.brainDumpHistory[today]) {
-      appData.brainDumpHistory[today] = appData.brainDumpHistory[today].filter(i => i.id != id);
-    }
-    saveData();
-    updateBrainDumpView();
-    updateBrainDumpBanner();
-    updateTrashButton();
+  if (!selectedDumpDate) selectedDumpDate = getTodayDateString();
+  const today = getTodayDateString();
+  const list = getDumpListForDate(selectedDumpDate);
+  const item = list.find(i => i.id == id);
+  if (!item) return;
+
+  const todo = {
+    id: item.id,
+    text: item.text,
+    quadrant: 4,
+    status: 'trash',
+    createdAt: new Date().toISOString(),
+    trashedAt: new Date().toISOString(),
+    dueDate: getDueDateForPeriod()
+  };
+  const existingTodo = appData.todos.find(t => t.id == item.id);
+  if (existingTodo) {
+    existingTodo.status = 'trash';
+    existingTodo.trashedAt = new Date().toISOString();
+  } else {
+    appData.todos.push(todo);
   }
+
+  appData.brainDump = appData.brainDump.filter(i => i.id != id);
+  if (appData.brainDumpHistory[selectedDumpDate]) {
+    appData.brainDumpHistory[selectedDumpDate] = appData.brainDumpHistory[selectedDumpDate].filter(i => i.id != id);
+  }
+  saveData();
+  updateBrainDumpView();
+  updateBrainDumpBanner();
+  updateTrashButton();
 }
 
-// Brain dump 전체 삭제
+// Brain dump 전체 삭제 (선택한 날짜 기준)
 function clearBrainDump() {
-  if (confirm('모든 할 일을 삭제하시겠습니까?')) {
-    const today = getTodayDateString();
-    appData.brainDump = [];
-    if (appData.brainDumpHistory[today]) {
-      appData.brainDumpHistory[today] = [];
-    }
-    updateBrainDumpView();
-    updateBrainDumpBanner();
-    saveData();
+  if (!selectedDumpDate) selectedDumpDate = getTodayDateString();
+  if (!confirm(`해당 날짜(${formatDateDisplay(selectedDumpDate)})의 모든 할 일을 삭제하시겠습니까?`)) return;
+  const today = getTodayDateString();
+  if (selectedDumpDate === today) appData.brainDump = [];
+  if (appData.brainDumpHistory[selectedDumpDate]) {
+    appData.brainDumpHistory[selectedDumpDate] = [];
   }
+  updateBrainDumpView();
+  updateBrainDumpBanner();
+  saveData();
 }
 
-// 날짜별 쏟아내기에서 선택한 날짜 (null이면 캘린더 보기)
-let selectedHistoryDate = null;
+// 쏟아내기 화면에서 선택한 날짜 (캘린더에서 선택 시 메인·리스트에 반영)
+let selectedDumpDate = null;
 
-// 날짜별 쏟아내기 배너 업데이트
+// 캘린더가 보여주는 연·월 (이전/다음 버튼으로 변경)
+let calendarViewYear = new Date().getFullYear();
+let calendarViewMonth = new Date().getMonth() + 1; // 1~12
+
+// 날짜 선택 모달 열기 시 캘린더 렌더 (팝업용). 그 외에는 리스트만 갱신.
 function updateBrainDumpBanner() {
+  const modal = document.getElementById('datePickerModal');
   const wrap = document.getElementById('brainDumpCalendarWrap');
-  if (!wrap) return;
-  
-  if (selectedHistoryDate) {
-    renderBrainDumpHistoryContent(wrap, selectedHistoryDate);
-    return;
+  updateBrainDumpList();
+  if (modal && modal.classList.contains('active') && wrap) {
+    renderBrainDumpCalendar(wrap, () => {
+      modal.classList.remove('active');
+    });
   }
-  
-  renderBrainDumpCalendar(wrap);
 }
 
-// 캘린더 렌더: 오늘 포함 2주(14일) 강조, 그 외 날짜도 선택 가능하되 어둡게
-function renderBrainDumpCalendar(container) {
+function openDatePickerModal() {
+  if (!selectedDumpDate) selectedDumpDate = getTodayDateString();
+  const [y, m] = selectedDumpDate.split('-').map(Number);
+  calendarViewYear = y;
+  calendarViewMonth = m;
+  document.getElementById('datePickerModal').classList.add('active');
+  updateBrainDumpBanner();
+}
+
+// 캘린더: 한 달 단위 표시. onDaySelect(선택 시 콜백, 팝업 닫기용).
+function renderBrainDumpCalendar(container, onDaySelect) {
+  if (!container) return;
   container.innerHTML = '';
   
   const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
   const today = new Date();
   const todayStr = getTodayDateString();
   
-  // 과거 28일 표시. 오늘 포함 2주(14일: today-13 ~ today)는 inRange, 그 이전은 outsideRange
-  const totalDays = 28;
-  const rangeDays = 14;
+  const year = calendarViewYear;
+  const month = calendarViewMonth;
+  const firstDay = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0);
+  const totalDays = lastDay.getDate();
+  const startWeekday = firstDay.getDay();
+  
   const days = [];
-  for (let i = totalDays - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    const day = d.getDate();
-    const dateStr = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-    const inRange = i <= rangeDays - 1;
+  for (let day = 1; day <= totalDays; day++) {
+    const dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    const d = new Date(year, month - 1, day);
     days.push({
       dateStr: dateStr,
       day: day,
       weekday: weekdays[d.getDay()],
       isToday: dateStr === todayStr,
-      inRange: inRange,
+      isFuture: dateStr > todayStr,
       count: (appData.brainDumpHistory || {})[dateStr] ? appData.brainDumpHistory[dateStr].length : 0
     });
   }
   
-  const label = document.createElement('p');
-  label.className = 'calendar-label';
-  label.textContent = '오늘 포함 2주';
-  container.appendChild(label);
+  // 헤더: [이전] YYYY년 M월 [다음]
+  const nav = document.createElement('div');
+  nav.className = 'calendar-nav';
+  const prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.className = 'calendar-nav-btn calendar-prev';
+  prevBtn.innerHTML = '←';
+  prevBtn.title = '이전 달';
+  const label = document.createElement('span');
+  label.className = 'calendar-month-label';
+  label.textContent = year + '년 ' + month + '월';
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'calendar-nav-btn calendar-next';
+  nextBtn.innerHTML = '→';
+  nextBtn.title = '다음 달';
+  
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const isNextDisabled = year > currentYear || (year === currentYear && month >= currentMonth);
+  
+  prevBtn.addEventListener('click', () => {
+    if (month === 1) {
+      calendarViewYear -= 1;
+      calendarViewMonth = 12;
+    } else {
+      calendarViewMonth -= 1;
+    }
+    updateBrainDumpBanner();
+  });
+  nextBtn.addEventListener('click', () => {
+    if (isNextDisabled) return;
+    if (month === 12) {
+      calendarViewYear += 1;
+      calendarViewMonth = 1;
+    } else {
+      calendarViewMonth += 1;
+    }
+    updateBrainDumpBanner();
+  });
+  
+  nextBtn.disabled = isNextDisabled;
+  nextBtn.classList.toggle('disabled', isNextDisabled);
+  
+  nav.appendChild(prevBtn);
+  nav.appendChild(label);
+  nav.appendChild(nextBtn);
+  container.appendChild(nav);
   
   const calendar = document.createElement('div');
   calendar.className = 'brain-dump-calendar';
@@ -447,10 +552,7 @@ function renderBrainDumpCalendar(container) {
   });
   calendar.appendChild(headerRow);
   
-  const startWeekday = new Date(days[0].dateStr + 'T12:00:00').getDay();
-  const totalCells = startWeekday + totalDays;
-  const numRows = Math.ceil(totalCells / 7);
-  
+  const numRows = Math.ceil((startWeekday + totalDays) / 7);
   let dayIndex = 0;
   for (let row = 0; row < numRows; row++) {
     const rowEl = document.createElement('div');
@@ -467,12 +569,14 @@ function renderBrainDumpCalendar(container) {
         const d = days[dayIndex];
         if (d.isToday) cell.classList.add('today');
         if (d.count > 0) cell.classList.add('has-dump');
-        if (!d.inRange) cell.classList.add('outside-range');
+        if (d.isFuture) cell.classList.add('outside-range');
         cell.dataset.date = d.dateStr;
         cell.innerHTML = `<span class="day-num">${d.day}</span>${d.count > 0 ? `<span class="day-count">${d.count}</span>` : ''}`;
         cell.addEventListener('click', () => {
-          selectedHistoryDate = d.dateStr;
-          updateBrainDumpBanner();
+          selectedDumpDate = d.dateStr;
+          updateSelectedDateDisplay();
+          updateBrainDumpList();
+          if (onDaySelect) onDaySelect();
         });
         dayIndex++;
       }

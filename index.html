@@ -12,55 +12,48 @@
 </head>
 <body>
   <div class="app">
-    <!-- 헤더 -->
-    <header>
+    <!-- 상단: 제목만 -->
+    <header class="app-header">
       <h1>아이젠하워 계획 다이어리</h1>
-      <div class="header-controls">
-        <div class="view-tabs">
-          <button class="view-tab active" data-view="brainDump">쏟아내기</button>
-          <button class="view-tab" data-view="matrix">매트릭스</button>
-          <button class="view-tab" data-view="execution">실행 및 계획</button>
-        </div>
-        <div id="trashButton" class="trash-button">
-          <span>휴지통</span>
-          <span class="trash-count">0</span>
-        </div>
-      </div>
     </header>
 
+    <!-- 본문 -->
+    <main class="app-main">
     <!-- 매일 쏟아내기 화면 -->
     <div id="brainDumpView" class="view active">
       <section class="brain-dump-section">
         <div class="brain-dump-layout">
-          <div class="brain-dump-main">
+          <div class="brain-dump-main" id="brainDumpMain">
             <h2>매일 쏟아내기</h2>
-            <p class="brain-dump-date" id="brainDumpTodayDate"></p>
-            <p class="subtitle">오늘 해야 할 모든 일을 머릿속에서 꺼내 적어보세요</p>
-            <div class="brain-dump-input">
-              <textarea id="brainDumpInput" placeholder="할 일을 하나씩 입력하고 Enter를 누르거나 추가 버튼을 클릭하세요&#10;예: 프로젝트 보고서 작성, 회의 준비, 운동하기..."></textarea>
+            <button type="button" id="brainDumpDateBtn" class="date-picker-btn" title="날짜 선택">
+              <span id="brainDumpDateBtnLabel">오늘</span>
+            </button>
+            <p class="subtitle" id="brainDumpSubtitle">할 일을 적고 추가한 뒤, 날짜 버튼을 눌러 다른 날을 확인할 수 있어요</p>
+            <div class="brain-dump-input" id="brainDumpInputWrap">
+              <textarea id="brainDumpInput" placeholder="할 일 입력 후 Enter 또는 추가&#10;예: 보고서 작성, 회의 준비"></textarea>
               <button id="addBrainDumpBtn" class="btn-primary">추가</button>
             </div>
-            <div class="brain-dump-list">
-              <h3>쏟아낸 할일</h3>
-              <ul id="brainDumpList"></ul>
-              <div class="actions">
-                <button id="startCategorizeBtn" class="btn-primary" disabled>분류하기</button>
-                <button id="clearBrainDumpBtn" class="btn-secondary">전체 삭제</button>
+            <div class="dump-list-block dump-list-left">
+              <div class="dump-list-header">
+                <h4>쏟아낸 할일</h4>
+                <div class="dump-list-actions">
+                  <button id="startCategorizeBtn" class="btn-primary btn-small" disabled>분류하기</button>
+                  <button id="clearBrainDumpBtn" class="btn-clear btn-small">전체 삭제</button>
+                </div>
               </div>
+              <ul id="brainDumpList" class="brain-dump-list-ul"></ul>
             </div>
           </div>
-          <aside class="brain-dump-banner">
-            <h3>날짜별 쏟아내기</h3>
-            <div id="brainDumpCalendarWrap" class="brain-dump-calendar-wrap">
-              <!-- 2주 캘린더 또는 선택한 날짜의 쏟아내기 내용 -->
-            </div>
-            <div class="unclassified-dump-block">
+          <aside class="brain-dump-aside">
+            <div class="brain-dump-banner">
+            <div class="banner-block unclassified-dump-block">
               <h4>분류 안한 할일</h4>
               <ul id="unclassifiedDumpList" class="unclassified-dump-list"></ul>
             </div>
-            <div class="classified-dump-block">
+            <div class="banner-block classified-dump-block">
               <h4>분류된 할일</h4>
               <ul id="classifiedDumpList" class="classified-dump-list"></ul>
+            </div>
             </div>
           </aside>
         </div>
@@ -76,40 +69,48 @@
           <div class="matrix-quadrant quadrant-1" data-quadrant="1">
             <div class="quadrant-header">
               <h3><span class="quadrant-title-full">중요하고 긴급</span><span class="quadrant-title-short">긴급·중요</span></h3>
-              <span class="badge">즉시 처리</span>
+              <span class="quadrant-header-right">
+                <button type="button" class="add-todo-btn add-todo-btn-inline" data-quadrant="1">+</button>
+                <span class="badge">즉시 처리</span>
+              </span>
             </div>
             <div class="todo-list" data-quadrant="1"></div>
-            <button class="add-todo-btn" data-quadrant="1">+ 추가</button>
           </div>
 
           <!-- 중요하지만 긴급하지 않음 -->
           <div class="matrix-quadrant quadrant-2" data-quadrant="2">
             <div class="quadrant-header">
               <h3><span class="quadrant-title-full">중요하지만 긴급하지 않음</span><span class="quadrant-title-short">중요</span></h3>
-              <span class="badge">계획</span>
+              <span class="quadrant-header-right">
+                <button type="button" class="add-todo-btn add-todo-btn-inline" data-quadrant="2">+</button>
+                <span class="badge">계획</span>
+              </span>
             </div>
             <div class="todo-list" data-quadrant="2"></div>
-            <button class="add-todo-btn" data-quadrant="2">+ 추가</button>
           </div>
 
           <!-- 긴급하지만 중요하지 않음 -->
           <div class="matrix-quadrant quadrant-3" data-quadrant="3">
             <div class="quadrant-header">
               <h3><span class="quadrant-title-full">긴급하지만 중요하지 않음</span><span class="quadrant-title-short">긴급</span></h3>
-              <span class="badge">위임</span>
+              <span class="quadrant-header-right">
+                <button type="button" class="add-todo-btn add-todo-btn-inline" data-quadrant="3">+</button>
+                <span class="badge">위임</span>
+              </span>
             </div>
             <div class="todo-list" data-quadrant="3"></div>
-            <button class="add-todo-btn" data-quadrant="3">+ 추가</button>
           </div>
 
           <!-- 중요하지도 긴급하지도 않음 -->
           <div class="matrix-quadrant quadrant-4" data-quadrant="4">
             <div class="quadrant-header">
               <h3><span class="quadrant-title-full">중요하지도 긴급하지도 않음</span><span class="quadrant-title-short">기타</span></h3>
-              <span class="badge">삭제</span>
+              <span class="quadrant-header-right">
+                <button type="button" class="add-todo-btn add-todo-btn-inline" data-quadrant="4">+</button>
+                <span class="badge">삭제</span>
+              </span>
             </div>
             <div class="todo-list" data-quadrant="4"></div>
-            <button class="add-todo-btn" data-quadrant="4">+ 추가</button>
           </div>
         </div>
       </section>
@@ -121,12 +122,28 @@
         <h2>실행 및 계획</h2>
         <p class="subtitle">분류된 할 일들을 실행하고 계획을 세워보세요</p>
         <div class="execution-content">
-          <div class="execution-center-cta">
-            <button type="button" id="executionDoItBtn" class="btn-execution-do">하기나해</button>
-          </div>
+          <p style="text-align: center; color: #999; padding: 40px;">
+            실행 및 계획 기능은 준비 중입니다.
+          </p>
         </div>
       </section>
     </div>
+    </main>
+
+    <!-- 하단 고정: 탭 + 휴지통 -->
+    <nav class="bottom-nav">
+      <div class="bottom-nav-inner">
+        <div class="view-tabs">
+          <button class="view-tab active" data-view="brainDump">쏟아내기</button>
+          <button class="view-tab" data-view="matrix">매트릭스</button>
+          <button class="view-tab" data-view="execution">실행 및 계획</button>
+        </div>
+        <div id="trashButton" class="trash-button">
+          <span>휴지통</span>
+          <span class="trash-count">0</span>
+        </div>
+      </div>
+    </nav>
   </div>
 
   <!-- 할 일 추가 모달 -->
@@ -168,6 +185,15 @@
         <button class="action-btn" data-action="delegate">위임하기</button>
         <button class="action-btn" data-action="delete">삭제하기</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 날짜 선택 팝업 (쏟아내기 화면) -->
+  <div id="datePickerModal" class="modal">
+    <div class="modal-content date-picker-modal">
+      <span class="close date-picker-close">&times;</span>
+      <h3>날짜 선택</h3>
+      <div id="brainDumpCalendarWrap" class="brain-dump-calendar-wrap"></div>
     </div>
   </div>
 
