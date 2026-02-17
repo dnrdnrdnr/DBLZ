@@ -25,9 +25,12 @@
         <div class="brain-dump-layout">
           <div class="brain-dump-main" id="brainDumpMain">
             <h2>매일 쏟아내기</h2>
-            <button type="button" id="brainDumpDateBtn" class="date-picker-btn" title="날짜 선택">
-              <span id="brainDumpDateBtnLabel">오늘</span>
-            </button>
+            <div class="date-picker-row">
+              <span class="brain-dump-date-text" id="brainDumpDateText"></span>
+              <button type="button" id="brainDumpDateBtn" class="date-picker-btn" title="날짜 선택">
+                <span id="brainDumpDateBtnLabel">오늘</span>
+              </button>
+            </div>
             <p class="subtitle" id="brainDumpSubtitle">할 일을 적고 추가한 뒤, 날짜 버튼을 눌러 다른 날을 확인할 수 있어요</p>
             <div class="brain-dump-input" id="brainDumpInputWrap">
               <textarea id="brainDumpInput" placeholder="할 일 입력 후 Enter 또는 추가&#10;예: 보고서 작성, 회의 준비"></textarea>

@@ -262,20 +262,23 @@ function getDateButtonLabel(dateStr) {
   const b = new Date(getTodayDateString() + 'T12:00:00');
   const diffDays = Math.round((b - a) / (24 * 60 * 60 * 1000));
   if (diffDays === 1) return '어제';
-  if (diffDays > 1 && diffDays <= 7) return diffDays + '일 전';
-  if (diffDays > 7) return formatDateDisplay(dateStr);
+  if (diffDays > 1 && diffDays <= 1095) return diffDays + '일 전';
+  if (diffDays > 1095) return formatDateDisplay(dateStr);
   if (diffDays === -1) return '내일';
-  if (diffDays < -1) return Math.abs(diffDays) + '일 후';
+  if (diffDays < -1 && diffDays >= -1095) return Math.abs(diffDays) + '일 후';
+  if (diffDays < -1095) return formatDateDisplay(dateStr);
   return formatDateDisplay(dateStr);
 }
 
-// 메인 상단 날짜 버튼 라벨 + 오늘 여부에 따라 입력란 표시
+// 메인 상단 날짜 표시(왼쪽) + 버튼 라벨 + 오늘 여부에 따라 입력란 표시
 function updateSelectedDateDisplay() {
   if (!selectedDumpDate) selectedDumpDate = getTodayDateString();
+  const dateTextEl = document.getElementById('brainDumpDateText');
   const labelEl = document.getElementById('brainDumpDateBtnLabel');
   const mainEl = document.getElementById('brainDumpMain');
   const inputWrap = document.getElementById('brainDumpInputWrap');
   const subtitleEl = document.getElementById('brainDumpSubtitle');
+  if (dateTextEl) dateTextEl.textContent = formatDateDisplay(selectedDumpDate);
   if (labelEl) labelEl.textContent = getDateButtonLabel(selectedDumpDate);
   const today = getTodayDateString();
   const isToday = selectedDumpDate === today;
@@ -500,11 +503,23 @@ function renderBrainDumpCalendar(container, onDaySelect) {
   const label = document.createElement('span');
   label.className = 'calendar-month-label';
   label.textContent = year + '년 ' + month + '월';
+  const todayBtn = document.createElement('button');
+  todayBtn.type = 'button';
+  todayBtn.className = 'calendar-nav-btn calendar-today-btn';
+  todayBtn.textContent = '오늘';
+  todayBtn.title = '오늘 날짜로 이동';
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.className = 'calendar-nav-btn calendar-next';
   nextBtn.innerHTML = '→';
   nextBtn.title = '다음 달';
+  
+  todayBtn.addEventListener('click', () => {
+    selectedDumpDate = getTodayDateString();
+    updateSelectedDateDisplay();
+    updateBrainDumpList();
+    if (onDaySelect) onDaySelect();
+  });
   
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -536,6 +551,7 @@ function renderBrainDumpCalendar(container, onDaySelect) {
   
   nav.appendChild(prevBtn);
   nav.appendChild(label);
+  nav.appendChild(todayBtn);
   nav.appendChild(nextBtn);
   container.appendChild(nav);
   

@@ -224,13 +224,27 @@ body {
   border-radius: 6px;
 }
 
+/* 날짜 행: 왼쪽에 날짜 텍스트 + 오른쪽에 버튼 */
+.date-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.brain-dump-date-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #667eea;
+}
+
 /* 날짜 선택 버튼 (오늘 / N일 전) */
 .date-picker-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  margin-bottom: 6px;
   border: 2px solid #667eea;
   border-radius: 10px;
   background: rgba(102, 126, 234, 0.12);
@@ -388,18 +402,72 @@ body {
   min-height: 0;
 }
 
-/* 날짜 선택 팝업 모달 */
+/* 날짜 선택 팝업 모달 - 창 크기 고정, 한 화면에 표시 */
 .date-picker-modal {
-  max-width: 360px;
+  width: 300px;
+  max-width: 90vw;
+  height: 340px;
+  max-height: 85vh;
+  box-sizing: border-box;
 }
 
 .date-picker-modal h3 {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   text-align: center;
+  font-size: 1rem;
 }
 
 .date-picker-modal .brain-dump-calendar-wrap {
-  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  height: 260px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.date-picker-modal .brain-dump-calendar-wrap .calendar-nav {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+.date-picker-modal .brain-dump-calendar-wrap .brain-dump-calendar {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.date-picker-modal .calendar-row {
+  gap: 2px;
+  min-height: 0;
+}
+
+.date-picker-modal .brain-dump-calendar .calendar-row {
+  grid-auto-rows: 26px;
+}
+
+.date-picker-modal .calendar-cell {
+  height: 26px;
+  min-height: 26px;
+  max-height: 26px;
+  font-size: 10px;
+  border-radius: 4px;
+}
+
+.date-picker-modal .calendar-cell-header {
+  font-size: 10px;
+}
+
+.date-picker-modal .calendar-day {
+  padding: 2px;
+}
+
+.date-picker-modal .calendar-day .day-num {
+  font-size: 10px;
+}
+
+.date-picker-modal .calendar-day .day-count {
+  font-size: 8px;
 }
 
 .brain-dump-banner .banner-block {
@@ -614,7 +682,7 @@ body {
   border-radius: 6px;
 }
 
-/* 캘린더 월 이동: 좌우 버튼 */
+/* 캘린더 월 이동: 좌우 버튼 (위치 고정) */
 .calendar-nav {
   display: flex;
   align-items: center;
@@ -627,14 +695,17 @@ body {
   font-size: 15px;
   font-weight: 600;
   color: #333;
-  flex: 1;
+  width: 120px;
+  min-width: 120px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .calendar-nav-btn {
   width: 36px;
   height: 36px;
   padding: 0;
+  flex-shrink: 0;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   background: white;
@@ -656,6 +727,15 @@ body {
 .calendar-nav-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.calendar-today-btn {
+  width: 52px;
+  min-width: 52px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  box-sizing: border-box;
 }
 
 .calendar-label {
