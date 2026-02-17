@@ -1070,6 +1070,19 @@ body {
   touch-action: none;
 }
 
+/* 터치 드래그 시 손가락 따라다니는 할 일 유령 */
+.matrix-touch-drag-ghost {
+  margin: 0;
+  touch-action: none;
+  pointer-events: none;
+  opacity: 0.95;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  transform: scale(1.02);
+  box-sizing: border-box;
+  background: white;
+}
+
 .todo-item.done {
   opacity: 0.85;
 }
@@ -1968,24 +1981,33 @@ body {
     border-radius: 12px;
   }
 
-  /* 쏟아내기: 모바일 친화적 레이아웃 */
+  /* 쏟아내기: 모바일·작은 화면 — 매일 쏟아내기 맨 위, 그 밑 쏟아낸 할일, 그 밑 분류 블록 세로로 */
   .brain-dump-layout {
     flex-direction: column;
     gap: 16px;
+  }
+
+  .brain-dump-main {
+    order: 1;
+    width: 100%;
+  }
+
+  .brain-dump-aside {
+    order: 2;
+    width: 100%;
+    max-width: none;
   }
 
   .brain-dump-banner {
     width: 100%;
     padding: 16px;
     border-radius: 12px;
+    flex-direction: column;
   }
 
-  .brain-dump-main {
-    order: 1;
-  }
-
-  .brain-dump-banner {
-    order: 2;
+  .brain-dump-banner .banner-block {
+    width: 100%;
+    min-height: 120px;
   }
 
   .view {
@@ -2221,14 +2243,14 @@ body {
     margin-bottom: 12px;
   }
 
-  /* 매트릭스: 작은 화면에서 네 사분면 2x2로 더 컴팩트하게 */
+  /* 매트릭스: 모바일에서 사분면을 화면에 더 크게 */
   .matrix-grid {
-    gap: 8px;
+    gap: 10px;
   }
 
   .matrix-quadrant {
-    padding: 10px;
-    min-height: 170px;
+    padding: 12px;
+    min-height: 38vh;
   }
 
   .quadrant-header {
@@ -2273,11 +2295,27 @@ body {
     font-size: 14px;
   }
 
-  .brain-dump-banner {
-    padding: 12px;
+  .brain-dump-main {
+    order: 1;
   }
 
-  .brain-dump-banner h3 {
+  .brain-dump-aside {
+    order: 2;
+    max-width: none;
+  }
+
+  .brain-dump-banner {
+    padding: 12px;
+    flex-direction: column;
+  }
+
+  .brain-dump-banner .banner-block {
+    width: 100%;
+    min-height: 100px;
+  }
+
+  .brain-dump-banner h3,
+  .brain-dump-banner h4 {
     font-size: 16px;
     margin-bottom: 12px;
   }

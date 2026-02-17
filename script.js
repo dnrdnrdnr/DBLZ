@@ -1132,7 +1132,7 @@ function updateMatrixView() {
 }
 
 // 매트릭스 터치 드래그 상태 (모바일)
-let matrixTouchDrag = { todoId: null, lastQuadrant: null };
+let matrixTouchDrag = { todoId: null, lastQuadrant: null, ghost: null, width: 0, height: 0 };
 
 // 매트릭스 사분면 드래그 앤 드롭 (한 번만 바인딩)
 function setupMatrixDragDrop() {
@@ -1269,18 +1269,37 @@ function createTodoItem(todo) {
     document.querySelectorAll('.matrix-quadrant').forEach(q => q.classList.remove('drag-over-matrix'));
   });
 
-  // 터치 드래그 (모바일): 사분면 간 이동
+  // 터치 드래그 (모바일): 사분면 간 이동 + 손가락 따라다니는 유령
   div.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
     if (e.target.closest('button')) return;
+    const touch = e.touches[0];
+    const rect = div.getBoundingClientRect();
     matrixTouchDrag.todoId = todo.id;
     matrixTouchDrag.lastQuadrant = null;
+    matrixTouchDrag.width = rect.width;
+    matrixTouchDrag.height = rect.height;
     div.classList.add('touch-dragging');
+
+    const ghost = div.cloneNode(true);
+    ghost.querySelectorAll('button').forEach(b => b.remove());
+    ghost.classList.add('matrix-touch-drag-ghost');
+    ghost.style.position = 'fixed';
+    ghost.style.left = (touch.clientX - rect.width / 2) + 'px';
+    ghost.style.top = (touch.clientY - rect.height / 2) + 'px';
+    ghost.style.width = rect.width + 'px';
+    ghost.style.minHeight = rect.height + 'px';
+    ghost.style.pointerEvents = 'none';
+    ghost.style.zIndex = '9999';
+    document.body.appendChild(ghost);
+    matrixTouchDrag.ghost = ghost;
   }, { passive: true });
   div.addEventListener('touchmove', (e) => {
-    if (!matrixTouchDrag.todoId) return;
+    if (!matrixTouchDrag.todoId || !matrixTouchDrag.ghost) return;
     e.preventDefault();
     const touch = e.touches[0];
+    matrixTouchDrag.ghost.style.left = (touch.clientX - matrixTouchDrag.width / 2) + 'px';
+    matrixTouchDrag.ghost.style.top = (touch.clientY - matrixTouchDrag.height / 2) + 'px';
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
     const quadrant = el?.closest('.matrix-quadrant') || null;
     if (quadrant !== matrixTouchDrag.lastQuadrant) {
@@ -1290,8 +1309,14 @@ function createTodoItem(todo) {
     }
   }, { passive: false });
   function clearMatrixTouchDrag() {
+    if (matrixTouchDrag.ghost && matrixTouchDrag.ghost.parentNode) {
+      matrixTouchDrag.ghost.parentNode.removeChild(matrixTouchDrag.ghost);
+    }
     matrixTouchDrag.todoId = null;
     matrixTouchDrag.lastQuadrant = null;
+    matrixTouchDrag.ghost = null;
+    matrixTouchDrag.width = 0;
+    matrixTouchDrag.height = 0;
     div.classList.remove('touch-dragging');
     document.querySelectorAll('.matrix-quadrant').forEach(q => q.classList.remove('drag-over-matrix'));
   }
