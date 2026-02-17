@@ -752,37 +752,32 @@ header h1 {
   transform: scale(1.1);
 }
 
-/* 휴지통 버튼 */
+/* 휴지통 버튼 (헤더 우측) */
 .trash-button {
-  position: fixed;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  background: rgba(255, 255, 255, 0.2);
   color: white;
-  padding: 16px 32px;
-  border-radius: 50px;
-  box-shadow: 0 4px 20px rgba(220, 53, 69, 0.4);
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 16px;
+  gap: 8px;
+  font-size: 14px;
   font-weight: 600;
-  z-index: 1000;
-  transition: all 0.3s;
+  transition: all 0.2s;
 }
 
 .trash-button:hover {
-  transform: translateX(-50%) translateY(-4px);
-  box-shadow: 0 6px 24px rgba(220, 53, 69, 0.5);
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .trash-count {
-  background: rgba(255, 255, 255, 0.3);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 14px;
+  background: rgba(255, 255, 255, 0.35);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -1506,9 +1501,8 @@ header h1 {
   }
 
   .trash-button {
-    bottom: 20px;
-    padding: 14px 24px;
-    font-size: 15px;
+    padding: 6px 12px;
+    font-size: 13px;
   }
 
   .todo-item {
@@ -1689,11 +1683,13 @@ header h1 {
   }
 
   .trash-button {
-    left: 16px;
-    right: 16px;
-    transform: none;
-    bottom: max(16px, env(safe-area-inset-bottom));
-    justify-content: center;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .trash-count {
+    padding: 2px 6px;
+    font-size: 11px;
   }
 
   /* 분류 모달: 모바일 터치 친화적 */

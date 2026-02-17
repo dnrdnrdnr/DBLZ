@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <title>아이젠하워 계획 다이어리</title>
+  <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -19,6 +20,10 @@
           <button class="view-tab active" data-view="brainDump">쏟아내기</button>
           <button class="view-tab" data-view="matrix">매트릭스</button>
           <button class="view-tab" data-view="execution">실행 및 계획</button>
+        </div>
+        <div id="trashButton" class="trash-button">
+          <span>휴지통</span>
+          <span class="trash-count">0</span>
         </div>
       </div>
     </header>
@@ -208,12 +213,6 @@
         <button id="cancelCategorizeBtn" class="btn-secondary">취소</button>
       </div>
     </div>
-  </div>
-
-  <!-- 휴지통 버튼 (모든 화면에서 표시) -->
-  <div id="trashButton" class="trash-button">
-    <span>휴지통</span>
-    <span class="trash-count">0</span>
   </div>
 
   <script src="script.js"></script>
