@@ -49,8 +49,10 @@ function setupEventListeners() {
   // 분류 모달 버튼
   document.getElementById('nextStepBtn').addEventListener('click', nextCategorizeStep);
   document.getElementById('cancelCategorizeBtn').addEventListener('click', () => {
-    document.getElementById('categorizeModal').classList.remove('active');
-    // 휴지통 버튼 다시 표시
+    const catModal = document.getElementById('categorizeModal');
+    catModal.classList.remove('active', 'categorize-modal-fullscreen');
+    catModal.querySelector('.modal-content')?.classList.remove('categorize-modal-one-screen');
+    catModal.querySelector('.drag-drop-container')?.classList.remove('mobile-stack-layout');
     updateTrashButton();
   });
   
@@ -72,8 +74,10 @@ function setupEventListeners() {
       const modal = e.target.closest('.modal');
       if (modal) {
         modal.classList.remove('active');
-        // 분류 모달이 닫힐 때 휴지통 버튼 다시 표시
         if (modal.id === 'categorizeModal') {
+          modal.classList.remove('categorize-modal-fullscreen');
+          modal.querySelector('.modal-content')?.classList.remove('categorize-modal-one-screen');
+          modal.querySelector('.drag-drop-container')?.classList.remove('mobile-stack-layout');
           updateTrashButton();
         }
       }
@@ -98,7 +102,9 @@ function setupEventListeners() {
     if (e.target.classList.contains('modal')) {
       const modal = e.target;
       if (modal.id === 'categorizeModal') {
-        modal.classList.remove('active');
+        modal.classList.remove('active', 'categorize-modal-fullscreen');
+        modal.querySelector('.modal-content')?.classList.remove('categorize-modal-one-screen');
+        modal.querySelector('.drag-drop-container')?.classList.remove('mobile-stack-layout');
         updateTrashButton();
       } else {
         closeModals();
@@ -537,6 +543,13 @@ let categorizeData = {
 
 let draggedElement = null;
 
+// 터치 기기 또는 작은 화면이면 분류 시 버튼 방식 사용 (드래그 미지원)
+function isMobileCategorize() {
+  return window.matchMedia('(pointer: coarse)').matches ||
+    window.matchMedia('(max-width: 768px)').matches ||
+    ('ontouchstart' in window);
+}
+
 // 분류 시작
 function startCategorize() {
   if (appData.brainDump.length === 0) return;
@@ -551,15 +564,21 @@ function startCategorize() {
     notUrgent: []
   };
   
-  // 모달 열기
-  document.getElementById('categorizeModal').classList.add('active');
-  
+  const modal = document.getElementById('categorizeModal');
+  const modalContent = document.querySelector('#categorizeModal .modal-content');
+  const container = document.querySelector('.drag-drop-container');
+  modal.classList.add('active');
+  const isMobile = isMobileCategorize();
+  modal.classList.toggle('categorize-modal-fullscreen', isMobile);
+  if (container) container.classList.toggle('mobile-stack-layout', isMobile);
+  if (modalContent) modalContent.classList.toggle('categorize-modal-one-screen', isMobile);
+
   // 휴지통 버튼 숨기기
   const trashBtn = document.getElementById('trashButton');
   if (trashBtn) {
     trashBtn.style.display = 'none';
   }
-  
+
   // 첫 번째 단계 설정
   setupCategorizeStep();
 }
@@ -567,11 +586,14 @@ function startCategorize() {
 // 분류 단계 설정
 function setupCategorizeStep() {
   const step = categorizeData.step;
-  
+  const isMobile = isMobileCategorize();
+
   const nextStepBtn = document.getElementById('nextStepBtn');
   if (step === 1) {
     // 첫 번째 단계: 중요도 분류
-    document.getElementById('categorizeTitle').textContent = '할 일을 드래그하여 중요도를 분류하세요';
+    document.getElementById('categorizeTitle').textContent = isMobile
+      ? '각 할 일 아래 버튼을 눌러 중요도를 분류하세요'
+      : '할 일을 드래그하여 중요도를 분류하세요';
     document.getElementById('categorizeStepText').textContent = '1단계: 중요도 분류';
     document.getElementById('leftZoneTitle').textContent = '중요함';
     document.getElementById('rightZoneTitle').textContent = '중요하지 않음';
@@ -589,7 +611,9 @@ function setupCategorizeStep() {
 
   } else if (step === 2) {
     // 두 번째 단계: 긴급도 분류
-    document.getElementById('categorizeTitle').textContent = '할 일을 드래그하여 긴급도를 분류하세요';
+    document.getElementById('categorizeTitle').textContent = isMobile
+      ? '각 할 일 아래 버튼을 눌러 긴급도를 분류하세요'
+      : '할 일을 드래그하여 긴급도를 분류하세요';
     document.getElementById('categorizeStepText').textContent = '2단계: 긴급도 분류';
     document.getElementById('leftZoneTitle').textContent = '긴급함';
     document.getElementById('rightZoneTitle').textContent = '긴급하지 않음';
@@ -626,18 +650,20 @@ function setupCategorizeStep() {
 function renderUnclassifiedTodos() {
   const centerContent = document.getElementById('centerZoneContent');
   centerContent.innerHTML = '';
-  
+  centerContent.classList.toggle('mobile-categorize', isMobileCategorize());
+
   if (categorizeData.unclassified.length === 0) {
     centerContent.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">모든 할 일이 분류되었습니다</p>';
     document.getElementById('nextStepBtn').disabled = false;
     return;
   }
-  
+
+  const useMobileUI = isMobileCategorize();
   categorizeData.unclassified.forEach(item => {
-    const todoEl = createDraggableTodo(item);
+    const todoEl = useMobileUI ? createMobileCategorizeTodo(item) : createDraggableTodo(item);
     centerContent.appendChild(todoEl);
   });
-  
+
   document.getElementById('nextStepBtn').disabled = categorizeData.unclassified.length > 0;
 }
 
@@ -680,6 +706,78 @@ function createCategorizedTodo(item) {
   div.className = 'categorized-todo';
   div.textContent = item.text;
   return div;
+}
+
+// 모바일/터치용: 할일 카드 — 왼쪽/오른쪽 큰 터치 영역(배너가 위·아래에 보이므로 위=중요/긴급, 아래=안중요/안긴급)
+function createMobileCategorizeTodo(item) {
+  const step = categorizeData.step;
+  const leftLabel = step === 1 ? '↑ 중요함' : '↑ 긴급함';
+  const rightLabel = step === 1 ? '↓ 중요하지 않음' : '↓ 긴급하지 않음';
+
+  const card = document.createElement('div');
+  card.className = 'mobile-categorize-todo';
+  card.dataset.id = String(item.id);
+  card.innerHTML = `
+    <div class="mobile-categorize-text">${escapeHtml(item.text)}</div>
+    <div class="mobile-categorize-tap-row">
+      <div class="mobile-tap-area mobile-tap-left" role="button" tabindex="0" data-id="${item.id}" data-side="left">${escapeHtml(leftLabel)}</div>
+      <div class="mobile-tap-area mobile-tap-right" role="button" tabindex="0" data-id="${item.id}" data-side="right">${escapeHtml(rightLabel)}</div>
+    </div>
+  `;
+
+  card.querySelectorAll('.mobile-tap-area').forEach(el => {
+    const id = el.dataset.id;
+    const side = el.dataset.side;
+
+    function doMove(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      lastMobileCatTouchTime = Date.now();
+      moveTodoToZone(id, side);
+    }
+
+    el.addEventListener('touchend', function(ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      doMove(ev);
+    }, { passive: false });
+
+    el.addEventListener('click', function(ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (Date.now() - lastMobileCatTouchTime < 350) return;
+      doMove(ev);
+    });
+  });
+
+  return card;
+}
+
+// 터치 후 클릭 이벤트 중복 방지용
+let lastMobileCatTouchTime = 0;
+
+// 모바일: 할 일을 좌(중요/긴급) 또는 우(안중요/안긴급) 존으로 이동
+function moveTodoToZone(itemId, side) {
+  const item = categorizeData.unclassified.find(t => t.id == itemId);
+  if (!item) return;
+
+  if (categorizeData.step === 1) {
+    if (side === 'left') categorizeData.important.push(item);
+    else categorizeData.notImportant.push(item);
+  } else {
+    if (side === 'left') categorizeData.urgent.push(item);
+    else categorizeData.notUrgent.push(item);
+  }
+  categorizeData.unclassified = categorizeData.unclassified.filter(t => t.id != itemId);
+
+  renderUnclassifiedTodos();
+  renderCategorizedTodos(
+    categorizeData.step === 1 ? 'important' : 'urgent',
+    categorizeData.step === 1 ? 'notImportant' : 'notUrgent'
+  );
+  updateZoneCounts();
 }
 
 // 드래그 시작
@@ -875,9 +973,10 @@ function finishCategorize() {
   appData.brainDump = [];
   
   // 모달 닫기
-  document.getElementById('categorizeModal').classList.remove('active');
-  
-  // 휴지통 버튼 다시 표시
+  const catModal = document.getElementById('categorizeModal');
+  catModal.classList.remove('active', 'categorize-modal-fullscreen');
+  catModal.querySelector('.modal-content')?.classList.remove('categorize-modal-one-screen');
+  catModal.querySelector('.drag-drop-container')?.classList.remove('mobile-stack-layout');
   updateTrashButton();
   
   // 데이터 저장
