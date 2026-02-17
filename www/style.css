@@ -107,7 +107,7 @@ body {
   cursor: grabbing;
 }
 
-/* 본문: 데스크톱에서는 그리드 없음, 모바일에서 가로 스크롤 스냅 */
+/* 본문: 데스크톱에서는 뷰 전환, 모바일에서 가로 스크롤 스냅 */
 .views-scroll {
   display: block;
   overflow: visible;
@@ -169,12 +169,7 @@ body {
   font-weight: 700;
 }
 
-/* 본문 */
-.app-main {
-  min-height: 200px;
-}
-
-/* 하단 고정 네비: 탭 + 휴지통, 짙은/옅은 회색 톤 */
+/* 하단 고정 네비 (구 구조, 미사용) */
 .bottom-nav {
   position: fixed;
   bottom: 16px;
@@ -2196,7 +2191,6 @@ body {
     border-radius: 12px;
   }
 
-  /* 모바일: 네 가지 뷰 가로 스크롤 스냅 (스와이프로 화면 전환) */
   .views-scroll {
     display: flex;
     overflow-x: auto;
@@ -2214,16 +2208,6 @@ body {
     scroll-snap-align: start;
     scroll-snap-stop: always;
     display: block;
-  }
-  .app-main .view.active {
-    display: block;
-  }
-  .top-tabs-banner .view-tab {
-    font-size: 12px;
-    padding: 8px 4px;
-  }
-  .tab-block {
-    width: calc(20% - 4px);
   }
 
   /* 쏟아내기: 모바일·작은 화면 — 매일 쏟아내기 맨 위, 그 밑 쏟아낸 테스크, 그 밑 분류 블록 세로로 */

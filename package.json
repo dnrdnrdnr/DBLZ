@@ -1,0 +1,22 @@
+{
+  "name": "eisenhower-diary",
+  "version": "1.0.0",
+  "description": "아이젠하워 계획 다이어리",
+  "scripts": {
+    "copy-web": "node -e \"const fs=require('fs');['index.html','style.css','script.js','manifest.json'].forEach(f=>fs.copyFileSync(f,'www/'+f));\"",
+    "cap:sync": "npm run copy-web && cap sync",
+    "cap:open:android": "cap open android",
+    "desktop": "electron .",
+    "electron": "electron ."
+  },
+  "main": "main.js",
+  "devDependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "electron": "^28.0.0"
+  },
+  "capacitor": {
+    "platforms": ["android"]
+  }
+}

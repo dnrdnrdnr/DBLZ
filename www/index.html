@@ -24,6 +24,14 @@
       </div>
     </header>
 
+    <!-- 잡생각 버튼: 하단 고정 -->
+    <div class="trash-button-float trash-button-bottom">
+      <div id="trashButton" class="trash-button" title="잡생각">
+        <span class="trash-button-label">잡생각</span>
+        <span class="trash-count">0</span>
+      </div>
+    </div>
+
     <!-- 본문: 모바일에서 스와이프 시 화면 전환 -->
     <main class="app-main">
     <div class="views-scroll" id="viewsScroll">
@@ -169,13 +177,11 @@
 
     <!-- 계획 및 정리 화면 -->
     <div id="planView" class="view">
-      <section class="execution-section">
+      <section class="plan-section">
         <h2>계획 및 정리</h2>
         <p class="subtitle">테스크를 정리하고 계획을 세워보세요</p>
-        <div class="execution-content">
-          <p style="text-align: center; color: #999; padding: 40px;">
-            계획 및 정리 기능은 준비 중입니다.
-          </p>
+        <div class="plan-content">
+          <p style="text-align: center; color: #999; padding: 40px;">계획 및 정리 기능은 준비 중입니다.</p>
         </div>
       </section>
     </div>
@@ -184,24 +190,14 @@
     <div id="executionView" class="view">
       <section class="execution-section">
         <h2>실행</h2>
-        <p class="subtitle">정리한 테스크를 실행해보세요</p>
+        <p class="subtitle">분류된 테스크를 실행해보세요</p>
         <div class="execution-content">
-          <p style="text-align: center; color: #999; padding: 40px;">
-            실행 기능은 준비 중입니다.
-          </p>
+          <p style="text-align: center; color: #999; padding: 40px;">실행 기능은 준비 중입니다.</p>
         </div>
       </section>
     </div>
     </div>
     </main>
-
-    <!-- 잡생각 버튼: 하단 고정 -->
-    <div class="trash-button-float trash-button-bottom">
-      <div id="trashButton" class="trash-button" title="잡생각">
-        <span class="trash-button-label">잡생각</span>
-        <span class="trash-count">0</span>
-      </div>
-    </div>
   </div>
 
   <!-- 테스크 추가 모달 -->

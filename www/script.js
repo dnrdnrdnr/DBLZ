@@ -153,17 +153,9 @@ function setupEventListeners() {
 
 // 뷰 전환
 function switchView(viewName) {
-  // 모든 뷰 숨기기
-  document.querySelectorAll('.view').forEach(view => {
-    view.classList.remove('active');
-  });
+  document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
+  document.querySelectorAll('.view-tab').forEach(tab => tab.classList.remove('active'));
   
-  // 모든 탭 비활성화
-  document.querySelectorAll('.view-tab').forEach(tab => {
-    tab.classList.remove('active');
-  });
-  
-  // 선택한 뷰 표시
   let targetView = null;
   let viewIndex = VIEW_ORDER.indexOf(viewName);
   if (viewIndex < 0) viewIndex = 0;
@@ -195,10 +187,7 @@ function switchView(viewName) {
       break;
   }
   
-  if (targetView) {
-    targetView.classList.add('active');
-  }
-
+  if (targetView) targetView.classList.add('active');
   updateTabBlockPosition(viewIndex);
   syncViewsScrollToIndex(viewIndex);
 }
@@ -220,7 +209,7 @@ function updateTabBlockPosition(index) {
   block.style.transform = `translateX(${left}px)`;
 }
 
-// 모바일: 뷰 스크롤 컨테이너를 해당 인덱스로 스크롤
+// 모바일: 뷰 스크롤을 해당 인덱스로 스크롤
 function syncViewsScrollToIndex(index) {
   const scrollEl = document.getElementById('viewsScroll');
   if (!scrollEl || scrollEl.scrollWidth <= scrollEl.clientWidth) return;
@@ -329,7 +318,6 @@ function setupTabBlockAndScroll() {
     }
   });
 }
-
 
 // 오늘 날짜 문자열 (YYYY-MM-DD)
 function getTodayDateString() {
@@ -791,7 +779,7 @@ function renderBrainDumpHistoryContent(container, dateStr) {
 
 // 분류 관련 변수
 let categorizeData = {
-  step: 1, // 1: 우위 분류, 2: 단기/장기 분류
+  step: 1, // 1: 중요도 분류, 2: 단기/장기 분류
   unclassified: [],
   important: [],
   notImportant: [],
@@ -879,12 +867,12 @@ function setupCategorizeStep() {
     document.getElementById('rightZoneTitle').textContent = '단기 아님';
     if (nextStepBtn) nextStepBtn.textContent = '분류 마무리';
     
-    // 우위 것들에 isImportant 속성 추가
+    // 중요한 것들에 isImportant 속성 추가
     categorizeData.important.forEach(item => {
       item.isImportant = true;
     });
     
-    // 우위 아님 것들에 isImportant 속성 추가
+    // 중요하지 않은 것들에 isImportant 속성 추가
     categorizeData.notImportant.forEach(item => {
       item.isImportant = false;
     });
@@ -968,7 +956,7 @@ function createCategorizedTodo(item) {
   return div;
 }
 
-// 모바일/터치용: 테스크 카드 — 왼쪽/오른쪽 큰 터치 영역(배너가 위·아래에 보이므로 위=우위/단기, 아래=안우위/안단기)
+// 모바일/터치용: 테스크 카드 — 왼쪽/오른쪽 큰 터치 영역(배너가 위·아래에 보이므로 위=중요/단기, 아래=안중요/안단기)
 function createMobileCategorizeTodo(item) {
   const step = categorizeData.step;
   const leftLabel = step === 1 ? '↑ 우위' : '↑ 단기';
@@ -1018,7 +1006,7 @@ function createMobileCategorizeTodo(item) {
 // 터치 후 클릭 이벤트 중복 방지용
 let lastMobileCatTouchTime = 0;
 
-// 모바일: 테스크를 좌(우위/단기) 또는 우(안우위/안단기) 존으로 이동
+// 모바일: 테스크를 좌(중요/단기) 또는 우(안중요/안단기) 존으로 이동
 function moveTodoToZone(itemId, side) {
   const item = categorizeData.unclassified.find(t => t.id == itemId);
   if (!item) return;

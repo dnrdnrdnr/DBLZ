@@ -1,0 +1,8 @@
+{
+  "appId": "com.eisenhower.diary",
+  "appName": "아이젠하워 계획 다이어리",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

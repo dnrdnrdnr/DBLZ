@@ -1,0 +1,11 @@
+{
+  "name": "아이젠하워 계획 다이어리",
+  "short_name": "아이젠하워",
+  "description": "매일 쏟아내기와 아이젠하워 매트릭스로 할 일을 정리하세요",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#3d3d3d",
+  "theme_color": "#3d3d3d",
+  "lang": "ko"
+}
