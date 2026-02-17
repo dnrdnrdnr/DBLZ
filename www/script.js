@@ -49,6 +49,14 @@ function setupEventListeners() {
   document.getElementById('brainDumpDateBtn').addEventListener('click', openDatePickerModal);
 
   // 분류 모달 버튼
+  const prevBtn = document.getElementById('prevStepBtn');
+  if (prevBtn) {
+    prevBtn.addEventListener('click', () => {
+      if (categorizeData.step !== 2) return;
+      categorizeData.step = 1;
+      setupCategorizeStep();
+    });
+  }
   document.getElementById('nextStepBtn').addEventListener('click', nextCategorizeStep);
   document.getElementById('cancelCategorizeBtn').addEventListener('click', () => {
     switchView('brainDump');
@@ -218,6 +226,25 @@ function syncViewsScrollToIndex(index) {
   scrollEl.scrollTo({ left: index * viewWidth, behavior: 'smooth' });
 }
 
+// 스와이프하는 동안 블록을 스크롤 위치에 맞춰 실시간 이동
+function updateTabBlockPositionFromScroll(scrollLeft) {
+  const track = document.getElementById('tabsTrack');
+  const block = document.getElementById('tabBlock');
+  const scrollEl = document.getElementById('viewsScroll');
+  if (!track || !block || !scrollEl) return;
+  const n = VIEW_ORDER.length;
+  if (n === 0) return;
+  const viewWidth = scrollEl.scrollWidth / n;
+  const fractionalIndex = scrollLeft / viewWidth;
+  const clamped = Math.max(0, Math.min(n - 1, fractionalIndex));
+  const trackRect = track.getBoundingClientRect();
+  const tabWidth = trackRect.width / n;
+  const left = clamped * tabWidth;
+  block.style.transition = 'none';
+  block.style.width = tabWidth + 'px';
+  block.style.transform = `translateX(${left}px)`;
+}
+
 // 탭 블록 드래그로 탭 전환 + 모바일 스크롤 시 탭/블록 동기화
 // 일정 거리 이상 움직였을 때만 드래그로 인식해, 탭 터치와 겹쳐도 둘 다 정확히 동작
 const DRAG_THRESHOLD_PX = 8;
@@ -297,17 +324,21 @@ function setupTabBlockAndScroll() {
     let scrollEndTimer = null;
     scrollEl.addEventListener('scroll', () => {
       if (scrollEl.scrollWidth <= scrollEl.clientWidth) return;
+      updateTabBlockPositionFromScroll(scrollEl.scrollLeft);
       clearTimeout(scrollEndTimer);
       scrollEndTimer = setTimeout(() => {
         const n = VIEW_ORDER.length;
         const viewWidth = scrollEl.scrollWidth / n;
         const index = Math.round(scrollEl.scrollLeft / viewWidth);
         const clamped = Math.max(0, Math.min(index, VIEW_ORDER.length - 1));
+        if (block) block.style.transition = '';
         if (document.querySelector('.view-tab.active')?.dataset.view !== VIEW_ORDER[clamped]) {
           switchView(VIEW_ORDER[clamped]);
+        } else {
+          updateTabBlockPosition(clamped);
         }
-      }, 100);
-    });
+      }, 120);
+    }, { passive: true });
   }
 
   window.addEventListener('resize', () => {
@@ -780,6 +811,7 @@ function renderBrainDumpHistoryContent(container, dateStr) {
 // 분류 관련 변수
 let categorizeData = {
   step: 1, // 1: 중요도 분류, 2: 단기/장기 분류
+  all: [],
   unclassified: [],
   important: [],
   notImportant: [],
@@ -812,9 +844,11 @@ function updateClarifyView() {
   emptyEl.style.display = 'none';
   contentEl.style.display = 'block';
 
+  const all = items.map(t => ({ ...t }));
   categorizeData = {
     step: 1,
-    unclassified: items.map(t => ({ ...t })),
+    all,
+    unclassified: [...all],
     important: [],
     notImportant: [],
     urgent: [],
@@ -835,37 +869,34 @@ function startCategorize() {
 function setupCategorizeStep() {
   const step = categorizeData.step;
   const isMobile = isMobileCategorize();
+  const prevStepBtn = document.getElementById('prevStepBtn');
+  if (prevStepBtn) prevStepBtn.style.display = step === 2 ? '' : 'none';
 
   const nextStepBtn = document.getElementById('nextStepBtn');
   if (step === 1) {
-    // 첫 번째 단계: 우위 분류
+    // 1단계: 우위/열위
     document.getElementById('categorizeTitle').textContent = isMobile
-      ? '각 테스크 아래 버튼을 눌러 우위를 분류하세요'
-      : '테스크를 드래그하여 우위를 분류하세요';
-    document.getElementById('categorizeStepText').textContent = '1단계: 우위 분류';
+      ? '가운데 테스크를 좌(우위) / 우(열위)로 스와이프하세요'
+      : '가운데 테스크를 좌(우위) / 우(열위)로 드래그하세요';
+    document.getElementById('categorizeStepText').textContent = '1단계: 우위 · 열위';
     document.getElementById('leftZoneTitle').textContent = '우위';
-    document.getElementById('rightZoneTitle').textContent = '우위 아님';
+    document.getElementById('rightZoneTitle').textContent = '열위';
     if (nextStepBtn) nextStepBtn.textContent = '다음 단계';
 
-    // 중앙에 미분류 테스크 표시
+    const doneIds = new Set([...categorizeData.important, ...categorizeData.notImportant].map(t => String(t.id)));
+    categorizeData.unclassified = (categorizeData.all || []).filter(t => !doneIds.has(String(t.id)));
     renderUnclassifiedTodos();
-
-    // 좌우 존 초기화
-    document.getElementById('leftZoneContent').innerHTML = '';
-    document.getElementById('rightZoneContent').innerHTML = '';
-
-    // 좌우 존에 분류된 테스크 표시
     renderCategorizedTodos('important', 'notImportant');
 
   } else if (step === 2) {
-    // 두 번째 단계: 단기/장기 분류
+    // 2단계: 단기/장기
     document.getElementById('categorizeTitle').textContent = isMobile
-      ? '각 테스크 아래 버튼을 눌러 단기/장기를 분류하세요'
-      : '테스크를 드래그하여 단기/장기를 분류하세요';
-    document.getElementById('categorizeStepText').textContent = '2단계: 단기/장기 분류';
+      ? '가운데 테스크를 좌(단기) / 우(장기)로 스와이프하세요'
+      : '가운데 테스크를 좌(단기) / 우(장기)로 드래그하세요';
+    document.getElementById('categorizeStepText').textContent = '2단계: 단기 · 장기';
     document.getElementById('leftZoneTitle').textContent = '단기';
-    document.getElementById('rightZoneTitle').textContent = '단기 아님';
-    if (nextStepBtn) nextStepBtn.textContent = '분류 마무리';
+    document.getElementById('rightZoneTitle').textContent = '장기';
+    if (nextStepBtn) nextStepBtn.textContent = '명확화 마무리';
     
     // 중요한 것들에 isImportant 속성 추가
     categorizeData.important.forEach(item => {
@@ -877,42 +908,36 @@ function setupCategorizeStep() {
       item.isImportant = false;
     });
     
-    // 모든 항목을 중앙에 표시 (important와 notImportant 모두)
-    categorizeData.unclassified = [...categorizeData.important, ...categorizeData.notImportant];
-    
+    const base = [...categorizeData.important, ...categorizeData.notImportant];
+    const doneIds = new Set([...categorizeData.urgent, ...categorizeData.notUrgent].map(t => String(t.id)));
+    categorizeData.unclassified = base.filter(t => !doneIds.has(String(t.id)));
     renderUnclassifiedTodos();
-    
-    // 좌우 존 초기화
-    document.getElementById('leftZoneContent').innerHTML = '';
-    document.getElementById('rightZoneContent').innerHTML = '';
-    
-    // 좌우 존에 분류된 테스크 표시
     renderCategorizedTodos('urgent', 'notUrgent');
   }
   
   updateZoneCounts();
-  setupDragAndDrop();
+  // HTML5 DnD 대신 포인터 드래그 사용
 }
 
-// 미분류 테스크 렌더링
+// 미분류 테스크 렌더링: 한 번에 한 테스크만 중앙에 표시, 드래그/스와이프로 좌(우위)·우(열위)에 놓으면 페이드
 function renderUnclassifiedTodos() {
   const centerContent = document.getElementById('centerZoneContent');
   centerContent.innerHTML = '';
-  centerContent.classList.toggle('mobile-categorize', isMobileCategorize());
+  centerContent.classList.remove('mobile-categorize');
 
   if (categorizeData.unclassified.length === 0) {
-    centerContent.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">모든 테스크가 분류되었습니다</p>';
-    document.getElementById('nextStepBtn').disabled = false;
+    centerContent.innerHTML = '<p class="clarify-all-done">모든 테스크가 분류되었습니다</p>';
+    const nextBtn = document.getElementById('nextStepBtn');
+    if (nextBtn) nextBtn.disabled = false;
     return;
   }
 
-  const useMobileUI = isMobileCategorize();
-  categorizeData.unclassified.forEach(item => {
-    const todoEl = useMobileUI ? createMobileCategorizeTodo(item) : createDraggableTodo(item);
-    centerContent.appendChild(todoEl);
-  });
-
-  document.getElementById('nextStepBtn').disabled = categorizeData.unclassified.length > 0;
+  const item = categorizeData.unclassified[0];
+  const card = createCenterCardTodo(item);
+  card.classList.add('clarify-pop-in');
+  centerContent.appendChild(card);
+  const nextBtn = document.getElementById('nextStepBtn');
+  if (nextBtn) nextBtn.disabled = true;
 }
 
 // 분류된 테스크 렌더링
@@ -924,27 +949,151 @@ function renderCategorizedTodos(leftKey, rightKey) {
   rightContent.innerHTML = '';
   
   categorizeData[leftKey].forEach(item => {
-    const todoEl = createCategorizedTodo(item);
+    const todoEl = createZoneDraggableTodo(item);
     leftContent.appendChild(todoEl);
   });
   
   categorizeData[rightKey].forEach(item => {
-    const todoEl = createCategorizedTodo(item);
+    const todoEl = createZoneDraggableTodo(item);
     rightContent.appendChild(todoEl);
   });
 }
 
-// 드래그 가능한 테스크 생성
+// 중앙 한 장 카드: 드래그 또는 터치 스와이프로 좌(우위)/우(열위)에 놓으면 페이드 후 다음 테스크
+function createCenterCardTodo(item) {
+  const div = document.createElement('div');
+  div.className = 'clarify-current-card';
+  div.dataset.id = String(item.id);
+  div.textContent = item.text;
+
+  attachClarifyPointerDrag(div, (side) => {
+    commitClarifySetSide(item.id, side, div);
+  });
+
+  return div;
+}
+
+// 드롭/스와이프 확정: 카드 페이드 후 데이터 반영 및 다음 테스크 표시
+function commitClarifyDrop(itemId, side, cardEl) {
+  // (구 버전 호환) → 새 구현으로 위임
+  commitClarifySetSide(itemId, side, cardEl);
+}
+
+// 좌/우(현재 단계 기준)로 확정: 중앙 카드/존 아이템 모두 공용
+function commitClarifySetSide(itemId, side, el) {
+  const idStr = String(itemId);
+  const item = (categorizeData.all || []).find(t => String(t.id) === idStr);
+  if (!item) return;
+
+  categorizeData.unclassified = (categorizeData.unclassified || []).filter(t => String(t.id) !== idStr);
+
+  if (categorizeData.step === 1) {
+    categorizeData.important = (categorizeData.important || []).filter(t => String(t.id) !== idStr);
+    categorizeData.notImportant = (categorizeData.notImportant || []).filter(t => String(t.id) !== idStr);
+    if (side === 'left') categorizeData.important.push(item);
+    else categorizeData.notImportant.push(item);
+  } else {
+    categorizeData.urgent = (categorizeData.urgent || []).filter(t => String(t.id) !== idStr);
+    categorizeData.notUrgent = (categorizeData.notUrgent || []).filter(t => String(t.id) !== idStr);
+    if (side === 'left') categorizeData.urgent.push(item);
+    else categorizeData.notUrgent.push(item);
+  }
+
+  if (el) {
+    el.classList.add('clarify-card-faded');
+    el.style.transform = '';
+  }
+  setTimeout(() => {
+    setupCategorizeStep();
+  }, 220);
+}
+
+// 좌/우 존에 보이는 아이템도 드래그로 재분류 가능
+function createZoneDraggableTodo(item) {
+  const div = document.createElement('div');
+  div.className = 'clarify-zone-item';
+  div.dataset.id = String(item.id);
+  div.textContent = item.text;
+  attachClarifyPointerDrag(div, (side) => {
+    commitClarifySetSide(item.id, side, div);
+  });
+  return div;
+}
+
+// 포인터 기반 드래그(마우스+터치): 자연스럽게 따라오게
+function attachClarifyPointerDrag(el, onDropSide) {
+  let dragging = false;
+  let startX = 0, startY = 0;
+  let dx = 0, dy = 0;
+
+  function clearZoneHighlights() {
+    document.getElementById('leftZone')?.classList.remove('drag-over', 'left-active');
+    document.getElementById('rightZone')?.classList.remove('drag-over', 'right-active');
+  }
+
+  function getDropSideByCenter() {
+    const leftZone = document.getElementById('leftZone');
+    const rightZone = document.getElementById('rightZone');
+    if (!leftZone || !rightZone) return null;
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const l = leftZone.getBoundingClientRect();
+    const rr = rightZone.getBoundingClientRect();
+    const inLeft = cx >= l.left && cx <= l.right && cy >= l.top && cy <= l.bottom;
+    const inRight = cx >= rr.left && cx <= rr.right && cy >= rr.top && cy <= rr.bottom;
+    if (inLeft) return 'left';
+    if (inRight) return 'right';
+    return null;
+  }
+
+  el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    dx = 0; dy = 0;
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('clarify-dragging');
+    el.style.transition = 'none';
+  });
+
+  el.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    dx = e.clientX - startX;
+    dy = e.clientY - startY;
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    clearZoneHighlights();
+    const side = getDropSideByCenter();
+    if (side === 'left') document.getElementById('leftZone')?.classList.add('drag-over', 'left-active');
+    if (side === 'right') document.getElementById('rightZone')?.classList.add('drag-over', 'right-active');
+  });
+
+  function endPointer() {
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove('clarify-dragging');
+    el.style.transition = '';
+    const side = getDropSideByCenter();
+    clearZoneHighlights();
+    if (side) onDropSide(side);
+    else el.style.transform = '';
+  }
+
+  el.addEventListener('pointerup', endPointer);
+  el.addEventListener('pointercancel', endPointer);
+}
+
+// 드래그 가능한 테스크 생성 (기존 다중 카드용, 호환)
 function createDraggableTodo(item) {
   const div = document.createElement('div');
   div.className = 'draggable-todo';
   div.draggable = true;
   div.dataset.id = item.id;
   div.textContent = item.text;
-  
   div.addEventListener('dragstart', handleDragStart);
   div.addEventListener('dragend', handleDragEnd);
-  
   return div;
 }
 
@@ -1083,57 +1232,20 @@ function handleDragLeave(e) {
   e.currentTarget.classList.remove('drag-over', 'left-active', 'right-active');
 }
 
-// 드롭 처리
+// 드롭 처리: 좌/우 존에 놓으면 페이드 후 반영
 function handleDrop(e) {
   e.preventDefault();
-  
   if (!draggedElement) return;
-  
   const zone = e.currentTarget;
   const itemId = draggedElement.dataset.id;
-  const item = categorizeData.unclassified.find(t => t.id == itemId);
-  
-  if (!item) return;
-  
-  if (categorizeData.step === 1) {
-    // 첫 번째 단계: 우위 분류
-    if (zone.id === 'leftZone') {
-      // 우위
-      categorizeData.important.push(item);
-    } else if (zone.id === 'rightZone') {
-      // 우위 아님
-      categorizeData.notImportant.push(item);
-    } else {
-      // 중앙으로 돌아감
-      return;
-    }
-  } else if (categorizeData.step === 2) {
-    // 두 번째 단계: 단기/장기 분류
-    if (zone.id === 'leftZone') {
-      // 단기
-      categorizeData.urgent.push(item);
-    } else if (zone.id === 'rightZone') {
-      // 단기 아님(장기 등)
-      categorizeData.notUrgent.push(item);
-    } else {
-      // 중앙으로 돌아감
-      return;
-    }
+  if (zone.id === 'leftZone' || zone.id === 'rightZone') {
+    const side = zone.id === 'leftZone' ? 'left' : 'right';
+    commitClarifyDrop(itemId, side, draggedElement);
+    zone.classList.remove('drag-over', 'left-active', 'right-active');
+    document.getElementById('leftZone').classList.remove('drag-over', 'left-active', 'right-active');
+    document.getElementById('rightZone').classList.remove('drag-over', 'left-active', 'right-active');
   }
-  
-  // 미분류 목록에서 제거
-  categorizeData.unclassified = categorizeData.unclassified.filter(t => t.id != itemId);
-  
-  // UI 업데이트
-  renderUnclassifiedTodos();
-  renderCategorizedTodos(
-    categorizeData.step === 1 ? 'important' : 'urgent',
-    categorizeData.step === 1 ? 'notImportant' : 'notUrgent'
-  );
-  updateZoneCounts();
-  
-  // 드래그 오버 효과 제거
-  zone.classList.remove('drag-over', 'left-active', 'right-active');
+  draggedElement = null;
 }
 
 // 존 카운트 업데이트

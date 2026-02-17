@@ -704,6 +704,75 @@ body {
   order: 1;
 }
 
+/* 명확화: 중앙 한 장 카드 + 드롭 시 페이드 */
+.clarify-current-card {
+  padding: 20px 24px;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+  border-radius: 12px;
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  cursor: grab;
+  transition: opacity 0.25s ease, transform 0.15s ease;
+  user-select: none;
+  touch-action: none;
+}
+.clarify-current-card:active {
+  cursor: grabbing;
+}
+.clarify-card-faded {
+  opacity: 0;
+  pointer-events: none;
+}
+.clarify-dragging {
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  transform: translate3d(0,0,0);
+  position: relative;
+  z-index: 50;
+}
+.clarify-zone-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: white;
+  border: 1px solid rgba(0,0,0,0.08);
+  font-size: 13px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.clarify-zone-item:active {
+  cursor: grabbing;
+}
+.clarify-pop-in {
+  animation: clarifyPopIn 180ms ease-out;
+}
+@keyframes clarifyPopIn {
+  from { transform: scale(0.98); opacity: 0.2; }
+  to { transform: scale(1); opacity: 1; }
+}
+.clarify-all-done {
+  text-align: center;
+  color: #666;
+  padding: 24px 20px;
+  font-size: 15px;
+}
+.clarify-content .center-zone {
+  justify-content: center;
+  align-items: center;
+  min-height: 100px;
+  overflow: visible;
+}
+.clarify-content .center-zone h4 {
+  margin-bottom: 12px;
+}
+.clarify-content .center-content {
+  overflow: visible;
+  max-height: none;
+  align-items: center;
+  justify-content: center;
+}
+
 /* 모바일: 다음 단계 버튼을 아래쪽에 */
 @media (max-width: 768px) {
   .clarify-section {
@@ -2016,6 +2085,8 @@ body {
   display: flex;
   gap: 12px;
   justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
   margin-top: 24px;
 }
 
