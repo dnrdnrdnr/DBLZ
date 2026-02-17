@@ -1131,6 +1131,9 @@ function updateMatrixView() {
   updateTrashButton();
 }
 
+// 매트릭스 터치 드래그 상태 (모바일)
+let matrixTouchDrag = { todoId: null, lastQuadrant: null };
+
 // 매트릭스 사분면 드래그 앤 드롭 (한 번만 바인딩)
 function setupMatrixDragDrop() {
   const grid = document.querySelector('.matrix-grid');
@@ -1265,7 +1268,47 @@ function createTodoItem(todo) {
     div.classList.remove('dragging');
     document.querySelectorAll('.matrix-quadrant').forEach(q => q.classList.remove('drag-over-matrix'));
   });
-  
+
+  // 터치 드래그 (모바일): 사분면 간 이동
+  div.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    if (e.target.closest('button')) return;
+    matrixTouchDrag.todoId = todo.id;
+    matrixTouchDrag.lastQuadrant = null;
+    div.classList.add('touch-dragging');
+  }, { passive: true });
+  div.addEventListener('touchmove', (e) => {
+    if (!matrixTouchDrag.todoId) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const quadrant = el?.closest('.matrix-quadrant') || null;
+    if (quadrant !== matrixTouchDrag.lastQuadrant) {
+      document.querySelectorAll('.matrix-quadrant').forEach(q => q.classList.remove('drag-over-matrix'));
+      if (quadrant) quadrant.classList.add('drag-over-matrix');
+      matrixTouchDrag.lastQuadrant = quadrant;
+    }
+  }, { passive: false });
+  function clearMatrixTouchDrag() {
+    matrixTouchDrag.todoId = null;
+    matrixTouchDrag.lastQuadrant = null;
+    div.classList.remove('touch-dragging');
+    document.querySelectorAll('.matrix-quadrant').forEach(q => q.classList.remove('drag-over-matrix'));
+  }
+  div.addEventListener('touchend', (e) => {
+    if (!matrixTouchDrag.todoId) return;
+    const targetQuadrant = matrixTouchDrag.lastQuadrant
+      ? parseInt(matrixTouchDrag.lastQuadrant.dataset.quadrant, 10)
+      : null;
+    if (targetQuadrant != null && targetQuadrant !== todo.quadrant) {
+      todo.quadrant = targetQuadrant;
+      saveData();
+      updateMatrixView();
+    }
+    clearMatrixTouchDrag();
+  }, { passive: true });
+  div.addEventListener('touchcancel', clearMatrixTouchDrag, { passive: true });
+
   // 체크 버튼: 완료/해제 토글
   const checkBtn = div.querySelector('.todo-check-btn');
   checkBtn.addEventListener('click', (e) => {
