@@ -44,6 +44,7 @@ body {
   max-width: 600px;
   margin: 0 auto;
   gap: 4px;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tabs-track .view-tab {
@@ -81,12 +82,14 @@ body {
   bottom: 4px;
   left: 4px;
   width: calc(20% - 6px);
-  background: white;
+  background: #b3d9ff;
   border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   pointer-events: none;
   z-index: 3;
   transition: transform 0.25s ease-out, width 0.25s ease-out;
+  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tab-block.dragging {
@@ -102,6 +105,10 @@ body {
   pointer-events: auto;
   cursor: grab;
   border-radius: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .tab-block-handle:active {
   cursor: grabbing;
@@ -2261,30 +2268,22 @@ body {
 @media (max-width: 768px) {
   body {
     padding: 12px;
+    overflow-x: hidden;
   }
 
   .app {
     border-radius: 12px;
   }
 
-  /* 모바일: 네 가지 뷰 가로 스크롤 스냅 (스와이프로 화면 전환) */
+  /* 모바일: 가로 스크롤 없이 활성 뷰만 꽉 차게 표시 (탭 탭으로 전환) */
   .views-scroll {
-    display: flex;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .views-scroll::-webkit-scrollbar {
-    display: none;
+    display: block;
+    overflow: visible;
   }
   .app-main .view {
-    min-width: 100%;
-    flex-shrink: 0;
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
-    display: block;
+    display: none;
+    width: 100%;
+    min-height: 200px;
   }
   .app-main .view.active {
     display: block;

@@ -289,10 +289,11 @@ function setupTabBlockAndScroll() {
     pendingDrag = true;
   });
   (dragTarget || block).addEventListener('touchstart', (e) => {
+    e.preventDefault();
     e.stopPropagation();
     pointerStartX = e.touches[0] ? e.touches[0].clientX : 0;
     pendingDrag = true;
-  }, { passive: true });
+  }, { passive: false });
 
   window.addEventListener('mousemove', (e) => {
     if (pendingDrag && !isDragging && Math.abs(e.clientX - pointerStartX) >= DRAG_THRESHOLD_PX) {
@@ -312,9 +313,10 @@ function setupTabBlockAndScroll() {
       block.classList.add('dragging');
     }
     if (!isDragging) return;
+    if (e.cancelable) e.preventDefault();
     const idx = getIndexFromX(x);
     updateTabBlockPosition(idx);
-  }, { passive: true });
+  }, { passive: false });
 
   function endDrag(clientX) {
     if (isDragging) {

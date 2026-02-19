@@ -161,9 +161,17 @@ function setupEventListeners() {
 
 // 뷰 전환
 function switchView(viewName) {
-  document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
-  document.querySelectorAll('.view-tab').forEach(tab => tab.classList.remove('active'));
+  // 모든 뷰 숨기기
+  document.querySelectorAll('.view').forEach(view => {
+    view.classList.remove('active');
+  });
   
+  // 모든 탭 비활성화
+  document.querySelectorAll('.view-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  // 선택한 뷰 표시
   let targetView = null;
   let viewIndex = VIEW_ORDER.indexOf(viewName);
   if (viewIndex < 0) viewIndex = 0;
@@ -195,7 +203,10 @@ function switchView(viewName) {
       break;
   }
   
-  if (targetView) targetView.classList.add('active');
+  if (targetView) {
+    targetView.classList.add('active');
+  }
+
   updateTabBlockPosition(viewIndex);
   syncViewsScrollToIndex(viewIndex);
 }
@@ -217,7 +228,7 @@ function updateTabBlockPosition(index) {
   block.style.transform = `translateX(${left}px)`;
 }
 
-// 모바일: 뷰 스크롤을 해당 인덱스로 스크롤
+// 모바일: 뷰 스크롤 컨테이너를 해당 인덱스로 스크롤
 function syncViewsScrollToIndex(index) {
   const scrollEl = document.getElementById('viewsScroll');
   if (!scrollEl || scrollEl.scrollWidth <= scrollEl.clientWidth) return;
@@ -278,10 +289,11 @@ function setupTabBlockAndScroll() {
     pendingDrag = true;
   });
   (dragTarget || block).addEventListener('touchstart', (e) => {
+    e.preventDefault();
     e.stopPropagation();
     pointerStartX = e.touches[0] ? e.touches[0].clientX : 0;
     pendingDrag = true;
-  }, { passive: true });
+  }, { passive: false });
 
   window.addEventListener('mousemove', (e) => {
     if (pendingDrag && !isDragging && Math.abs(e.clientX - pointerStartX) >= DRAG_THRESHOLD_PX) {
@@ -301,9 +313,10 @@ function setupTabBlockAndScroll() {
       block.classList.add('dragging');
     }
     if (!isDragging) return;
+    if (e.cancelable) e.preventDefault();
     const idx = getIndexFromX(x);
     updateTabBlockPosition(idx);
-  }, { passive: true });
+  }, { passive: false });
 
   function endDrag(clientX) {
     if (isDragging) {
@@ -349,6 +362,7 @@ function setupTabBlockAndScroll() {
     }
   });
 }
+
 
 // 오늘 날짜 문자열 (YYYY-MM-DD)
 function getTodayDateString() {
@@ -810,7 +824,7 @@ function renderBrainDumpHistoryContent(container, dateStr) {
 
 // 분류 관련 변수
 let categorizeData = {
-  step: 1, // 1: 중요도 분류, 2: 단기/장기 분류
+  step: 1, // 1: 우위 분류, 2: 단기/장기 분류
   all: [],
   unclassified: [],
   important: [],
@@ -883,6 +897,7 @@ function setupCategorizeStep() {
     document.getElementById('rightZoneTitle').textContent = '열위';
     if (nextStepBtn) nextStepBtn.textContent = '다음 단계';
 
+    // 미분류 = all - (우위 + 열위)
     const doneIds = new Set([...categorizeData.important, ...categorizeData.notImportant].map(t => String(t.id)));
     categorizeData.unclassified = (categorizeData.all || []).filter(t => !doneIds.has(String(t.id)));
     renderUnclassifiedTodos();
@@ -898,16 +913,17 @@ function setupCategorizeStep() {
     document.getElementById('rightZoneTitle').textContent = '장기';
     if (nextStepBtn) nextStepBtn.textContent = '명확화 마무리';
     
-    // 중요한 것들에 isImportant 속성 추가
+    // 우위 것들에 isImportant 속성 추가
     categorizeData.important.forEach(item => {
       item.isImportant = true;
     });
     
-    // 중요하지 않은 것들에 isImportant 속성 추가
+    // 우위 아님 것들에 isImportant 속성 추가
     categorizeData.notImportant.forEach(item => {
       item.isImportant = false;
     });
     
+    // 2단계 베이스(우위+열위) 중 아직 단기/장기 분류 안 된 것만 중앙에
     const base = [...categorizeData.important, ...categorizeData.notImportant];
     const doneIds = new Set([...categorizeData.urgent, ...categorizeData.notUrgent].map(t => String(t.id)));
     categorizeData.unclassified = base.filter(t => !doneIds.has(String(t.id)));
@@ -916,7 +932,7 @@ function setupCategorizeStep() {
   }
   
   updateZoneCounts();
-  // HTML5 DnD 대신 포인터 드래그 사용
+  // HTML5 DnD 대신 포인터 드래그를 사용 (카드가 자연스럽게 따라오도록)
 }
 
 // 미분류 테스크 렌더링: 한 번에 한 테스크만 중앙에 표시, 드래그/스와이프로 좌(우위)·우(열위)에 놓으면 페이드
@@ -973,18 +989,13 @@ function createCenterCardTodo(item) {
   return div;
 }
 
-// 드롭/스와이프 확정: 카드 페이드 후 데이터 반영 및 다음 테스크 표시
-function commitClarifyDrop(itemId, side, cardEl) {
-  // (구 버전 호환) → 새 구현으로 위임
-  commitClarifySetSide(itemId, side, cardEl);
-}
-
 // 좌/우(현재 단계 기준)로 확정: 중앙 카드/존 아이템 모두 공용
 function commitClarifySetSide(itemId, side, el) {
   const idStr = String(itemId);
   const item = (categorizeData.all || []).find(t => String(t.id) === idStr);
   if (!item) return;
 
+  // 항상 중앙(미분류)에서는 제거
   categorizeData.unclassified = (categorizeData.unclassified || []).filter(t => String(t.id) !== idStr);
 
   if (categorizeData.step === 1) {
@@ -1004,7 +1015,7 @@ function commitClarifySetSide(itemId, side, el) {
     el.style.transform = '';
   }
   setTimeout(() => {
-    setupCategorizeStep();
+    setupCategorizeStep(); // unclassified 재계산 + 렌더
   }, 220);
 }
 
@@ -1085,6 +1096,12 @@ function attachClarifyPointerDrag(el, onDropSide) {
   el.addEventListener('pointercancel', endPointer);
 }
 
+// 드롭/스와이프 확정: 카드 페이드 후 데이터 반영 및 다음 테스크 표시
+function commitClarifyDrop(itemId, side, cardEl) {
+  // (구 버전 호환) → 새 구현으로 위임
+  commitClarifySetSide(itemId, side, cardEl);
+}
+
 // 드래그 가능한 테스크 생성 (기존 다중 카드용, 호환)
 function createDraggableTodo(item) {
   const div = document.createElement('div');
@@ -1105,7 +1122,7 @@ function createCategorizedTodo(item) {
   return div;
 }
 
-// 모바일/터치용: 테스크 카드 — 왼쪽/오른쪽 큰 터치 영역(배너가 위·아래에 보이므로 위=중요/단기, 아래=안중요/안단기)
+// 모바일/터치용: 테스크 카드 — 왼쪽/오른쪽 큰 터치 영역(배너가 위·아래에 보이므로 위=우위/단기, 아래=안우위/안단기)
 function createMobileCategorizeTodo(item) {
   const step = categorizeData.step;
   const leftLabel = step === 1 ? '↑ 우위' : '↑ 단기';
@@ -1155,7 +1172,7 @@ function createMobileCategorizeTodo(item) {
 // 터치 후 클릭 이벤트 중복 방지용
 let lastMobileCatTouchTime = 0;
 
-// 모바일: 테스크를 좌(중요/단기) 또는 우(안중요/안단기) 존으로 이동
+// 모바일: 테스크를 좌(우위/단기) 또는 우(안우위/안단기) 존으로 이동
 function moveTodoToZone(itemId, side) {
   const item = categorizeData.unclassified.find(t => t.id == itemId);
   if (!item) return;
