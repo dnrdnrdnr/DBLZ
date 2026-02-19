@@ -11,6 +11,7 @@ const VIEW_ORDER = ['brainDump', 'clarify', 'matrix', 'plan', 'execution'];
 
 // 초기화
 document.addEventListener('DOMContentLoaded', () => {
+  initDarkMode();
   loadData();
   setupEventListeners();
   setupTabBlockAndScroll();
@@ -48,20 +49,9 @@ function setupEventListeners() {
   document.getElementById('clearBrainDumpBtn').addEventListener('click', clearBrainDump);
   document.getElementById('brainDumpDateBtn').addEventListener('click', openDatePickerModal);
 
-  // 분류 모달 버튼
-  const prevBtn = document.getElementById('prevStepBtn');
-  if (prevBtn) {
-    prevBtn.addEventListener('click', () => {
-      if (categorizeData.step !== 2) return;
-      categorizeData.step = 1;
-      setupCategorizeStep();
-    });
-  }
+  // 분류 버튼
+  document.getElementById('undoSwipeBtn').addEventListener('click', undoLastSwipe);
   document.getElementById('nextStepBtn').addEventListener('click', nextCategorizeStep);
-  document.getElementById('cancelCategorizeBtn').addEventListener('click', () => {
-    switchView('brainDump');
-    updateTrashButton();
-  });
   
   
   // 매트릭스 테스크 추가
@@ -404,7 +394,6 @@ function formatDateShort(isoString) {
   return m + '/' + day;
 }
 
-// Brain dump 아이템 추가 (선택한 날짜에 추가)
 function addBrainDumpItem() {
   const input = document.getElementById('brainDumpInput');
   const text = input.value.trim();
@@ -415,12 +404,14 @@ function addBrainDumpItem() {
 
   const lines = text.split('\n').filter(line => line.trim());
   const today = getTodayDateString();
+  const addedTexts = [];
   lines.forEach(line => {
     if (line.trim()) {
       const dateAdded = new Date().toISOString();
       const item = { id: Date.now() + Math.random(), text: line.trim(), dateAdded };
       appData.brainDumpHistory[dateStr].push(item);
       if (dateStr === today) appData.brainDump.push(item);
+      addedTexts.push(line.trim());
     }
   });
 
@@ -428,6 +419,61 @@ function addBrainDumpItem() {
   updateBrainDumpView();
   updateBrainDumpBanner();
   saveData();
+  if (addedTexts.length > 0) {
+    bumpDumpCount();
+    animateBubbleToCount(addedTexts[0]);
+  }
+}
+
+function bumpDumpCount() {
+  const countBadge = document.getElementById('dumpCount');
+  if (!countBadge) return;
+  countBadge.classList.remove('dump-count-bump');
+  void countBadge.offsetWidth;
+  countBadge.classList.add('dump-count-bump');
+  setTimeout(() => countBadge.classList.remove('dump-count-bump'), 350);
+}
+
+function animateBubbleToCount(text) {
+  var inputWrap = document.getElementById('brainDumpInputWrap');
+  var listPanel = document.querySelector('.dump-panel-list');
+  if (!inputWrap || !listPanel) return;
+
+  var header = listPanel.querySelector('.dump-panel-header');
+  var headerTitle = header ? header.querySelector('h3') : null;
+  if (!header || !headerTitle) return;
+
+  var startR = inputWrap.getBoundingClientRect();
+  var bubble = document.createElement('div');
+  bubble.className = 'dump-bubble';
+  bubble.textContent = text;
+  bubble.style.left = (startR.left + startR.width / 2) + 'px';
+  bubble.style.top = (startR.top + 24) + 'px';
+  document.body.appendChild(bubble);
+
+  function runFlight() {
+    var h3R = headerTitle.getBoundingClientRect();
+    var badgeCenterX = h3R.right - 12;
+    var badgeCenterY = h3R.top + h3R.height / 2;
+    bubble.classList.add('fly');
+    bubble.style.left = badgeCenterX + 'px';
+    bubble.style.top = badgeCenterY + 'px';
+  }
+
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      setTimeout(runFlight, 80);
+    });
+  });
+
+  function cleanup() {
+    if (!bubble.parentNode) return;
+    bubble.remove();
+    var last = document.querySelector('.dump-item-list li:last-child');
+    if (last && !last.classList.contains('dump-item-drop')) last.classList.add('dump-item-drop');
+  }
+  bubble.addEventListener('transitionend', cleanup, { once: true });
+  setTimeout(cleanup, 750);
 }
 
 // 선택한 날짜에 해당하는 쏟아내기 목록 반환 (오늘은 live brainDump, 그 외는 히스토리)
@@ -454,26 +500,22 @@ function getDateButtonLabel(dateStr) {
   return formatDateDisplay(dateStr);
 }
 
-// 메인 상단 날짜 표시(왼쪽) + 버튼 라벨 + 오늘 여부에 따라 입력란 표시
 function updateSelectedDateDisplay() {
   if (!selectedDumpDate) selectedDumpDate = getTodayDateString();
   const dateTextEl = document.getElementById('brainDumpDateText');
   const labelEl = document.getElementById('brainDumpDateBtnLabel');
-  const mainEl = document.getElementById('brainDumpMain');
   const inputWrap = document.getElementById('brainDumpInputWrap');
   const subtitleEl = document.getElementById('brainDumpSubtitle');
   if (dateTextEl) dateTextEl.textContent = formatDateDisplay(selectedDumpDate);
   if (labelEl) labelEl.textContent = getDateButtonLabel(selectedDumpDate);
   const today = getTodayDateString();
   const isToday = selectedDumpDate === today;
-  if (mainEl) mainEl.classList.toggle('is-today', isToday);
   if (inputWrap) inputWrap.style.display = isToday ? '' : 'none';
   if (subtitleEl) subtitleEl.textContent = isToday
     ? '테스크를 적고 추가한 뒤, 날짜 버튼을 눌러 다른 날을 확인할 수 있어요'
     : '선택한 날짜에 쏟아낸 테스크예요. 오늘을 누르면 새로 적을 수 있어요';
 }
 
-// 배너의 '쏟아낸 테스크' 리스트 업데이트 (선택한 날짜 기준)
 function updateBrainDumpList() {
   if (!selectedDumpDate) selectedDumpDate = getTodayDateString();
   const list = document.getElementById('brainDumpList');
@@ -484,7 +526,6 @@ function updateBrainDumpList() {
   
   const today = getTodayDateString();
   const isReadOnly = selectedDumpDate !== today;
-  list.classList.toggle('is-readonly', isReadOnly);
 
   items.forEach(item => {
     const li = document.createElement('li');
@@ -501,8 +542,8 @@ function updateBrainDumpList() {
     list.appendChild(li);
   });
 
-  updateUnclassifiedDumpList();
-  updateClassifiedDumpList();
+  const countEl = document.getElementById('dumpCount');
+  if (countEl) countEl.textContent = items.length;
 }
 
 // Brain dump 뷰 업데이트 (날짜 표시 + 배너 리스트)
@@ -512,59 +553,12 @@ function updateBrainDumpView() {
   updateBrainDumpList();
 }
 
-// 사이드바 '분류 안한 테스크' 목록 업데이트
-function updateUnclassifiedDumpList() {
-  const listEl = document.getElementById('unclassifiedDumpList');
-  if (!listEl) return;
-  listEl.innerHTML = '';
-  if (!appData.brainDump || appData.brainDump.length === 0) {
-    const empty = document.createElement('li');
-    empty.className = 'unclassified-dump-empty';
-    empty.textContent = '없습니다';
-    listEl.appendChild(empty);
-    return;
-  }
-  appData.brainDump.forEach(item => {
-    const li = document.createElement('li');
-    const dateStr = item.dateAdded ? formatDateShort(item.dateAdded) : '';
-    li.className = 'unclassified-dump-item';
-    li.innerHTML = `<span class="unclassified-dump-text">${escapeHtml(item.text)}</span><span class="unclassified-dump-date">${dateStr}</span>`;
-    listEl.appendChild(li);
-  });
-}
+function updateUnclassifiedDumpList() { }
 
 // 사분면 라벨 (표시용)
 const QUADRANT_LABELS = { 1: '우위·단기', 2: '우위·비단기', 3: '단기·열위', 4: '비우위·비단기' };
 
-// 사이드바 '분류된 테스크' 목록 업데이트 (오늘 쏟아낸 것 중 분류 완료된 항목)
-function updateClassifiedDumpList() {
-  const listEl = document.getElementById('classifiedDumpList');
-  if (!listEl) return;
-  listEl.innerHTML = '';
-  const today = getTodayDateString();
-  const historyToday = (appData.brainDumpHistory || {})[today] || [];
-  const unclassifiedIds = new Set((appData.brainDump || []).map(b => String(b.id)));
-  const classifiedToday = historyToday.filter(item => !unclassifiedIds.has(String(item.id)));
-  const todoMap = new Map((appData.todos || []).filter(t => t.status !== 'trash').map(t => [String(t.id), t]));
-
-  if (classifiedToday.length === 0) {
-    const empty = document.createElement('li');
-    empty.className = 'classified-dump-empty';
-    empty.textContent = '없습니다';
-    listEl.appendChild(empty);
-    return;
-  }
-  classifiedToday.forEach(item => {
-    const todo = todoMap.get(String(item.id));
-    const quadrant = todo ? (todo.quadrant || 4) : 4;
-    const label = QUADRANT_LABELS[quadrant] || '비우위·비단기';
-    const dateStr = item.dateAdded ? formatDateShort(item.dateAdded) : '';
-    const li = document.createElement('li');
-    li.className = 'classified-dump-item';
-    li.innerHTML = `<span class="classified-dump-text">${escapeHtml(item.text)}</span><span class="classified-dump-meta">${dateStr} ${escapeHtml(label)}</span>`;
-    listEl.appendChild(li);
-  });
-}
+function updateClassifiedDumpList() { }
 
 // Brain dump 아이템 삭제 (선택한 날짜 목록에서 제거 후 휴지통으로)
 function removeBrainDumpItem(id) {
@@ -639,7 +633,23 @@ function openDatePickerModal() {
   const [y, m] = selectedDumpDate.split('-').map(Number);
   calendarViewYear = y;
   calendarViewMonth = m;
-  document.getElementById('datePickerModal').classList.add('active');
+  const modal = document.getElementById('datePickerModal');
+  const content = modal?.querySelector('.modal-content');
+  const btn = document.getElementById('brainDumpDateBtn');
+  modal.classList.add('active');
+  if (content && btn) {
+    const r = btn.getBoundingClientRect();
+    content.style.setProperty('--dp-btn-left', r.left + 'px');
+    content.style.setProperty('--dp-btn-top', r.top + 'px');
+    content.style.setProperty('--dp-btn-width', r.width + 'px');
+    content.style.setProperty('--dp-btn-height', r.height + 'px');
+    content.classList.add('date-picker-from-btn');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        content.classList.remove('date-picker-from-btn');
+      });
+    });
+  }
   updateBrainDumpBanner();
 }
 
@@ -842,15 +852,7 @@ let categorizeData = {
   urgent: [],
   notUrgent: []
 };
-
-let draggedElement = null;
-
-// 터치 기기 또는 작은 화면이면 분류 시 버튼 방식 사용 (드래그 미지원)
-function isMobileCategorize() {
-  return window.matchMedia('(pointer: coarse)').matches ||
-    window.matchMedia('(max-width: 768px)').matches ||
-    ('ontouchstart' in window);
-}
+let clarifyHistory = [];
 
 // 명확화 뷰 표시: 테스크 있으면 분류 UI, 없으면 빈 메시지
 function updateClarifyView() {
@@ -866,7 +868,7 @@ function updateClarifyView() {
   }
 
   emptyEl.style.display = 'none';
-  contentEl.style.display = 'block';
+  contentEl.style.display = 'flex';
 
   const all = items.map(t => ({ ...t }));
   categorizeData = {
@@ -878,134 +880,172 @@ function updateClarifyView() {
     urgent: [],
     notUrgent: []
   };
+  clarifyHistory = [];
 
-  const container = contentEl.querySelector('.drag-drop-container');
-  if (container) container.classList.toggle('mobile-stack-layout', isMobileCategorize());
   setupCategorizeStep();
 }
 
-// 분류 시작 (명확화 버튼은 switchView('clarify')로 대체됨; 호환용)
 function startCategorize() {
   switchView('clarify');
 }
 
-// 분류 단계 설정
 function setupCategorizeStep() {
   const step = categorizeData.step;
-  const isMobile = isMobileCategorize();
-  const prevStepBtn = document.getElementById('prevStepBtn');
-  if (prevStepBtn) prevStepBtn.style.display = step === 2 ? '' : 'none';
 
   const nextStepBtn = document.getElementById('nextStepBtn');
-  if (step === 1) {
-    // 1단계: 우위/열위
-    document.getElementById('categorizeTitle').textContent = isMobile
-      ? '가운데 테스크를 좌(우위) / 우(열위)로 스와이프하세요'
-      : '가운데 테스크를 좌(우위) / 우(열위)로 드래그하세요';
-    document.getElementById('categorizeStepText').textContent = '1단계: 우위 · 열위';
-    document.getElementById('leftZoneTitle').textContent = '우위';
-    document.getElementById('rightZoneTitle').textContent = '열위';
-    if (nextStepBtn) nextStepBtn.textContent = '다음 단계';
+  const stepText = document.getElementById('categorizeStepText');
+  const labelLeft = document.getElementById('swipeLabelLeft');
+  const labelRight = document.getElementById('swipeLabelRight');
+  const countLeftSpan = document.querySelector('.swipe-count-left');
+  const countRightSpan = document.querySelector('.swipe-count-right');
+  const clarifyContent = document.getElementById('clarifyContent');
+  if (clarifyContent) clarifyContent.classList.toggle('swipe-step2', step === 2);
 
-    // 미분류 = all - (우위 + 열위)
+  if (step === 1) {
+    if (stepText) stepText.textContent = '1단계: 우위 · 열위';
+    if (labelLeft) labelLeft.textContent = '← 우위';
+    if (labelRight) labelRight.textContent = '열위 →';
+    if (nextStepBtn) nextStepBtn.textContent = '다음 단계';
+    if (countLeftSpan) countLeftSpan.innerHTML = '우위 <span id="leftCount">0</span>';
+    if (countRightSpan) countRightSpan.innerHTML = '열위 <span id="rightCount">0</span>';
+
     const doneIds = new Set([...categorizeData.important, ...categorizeData.notImportant].map(t => String(t.id)));
     categorizeData.unclassified = (categorizeData.all || []).filter(t => !doneIds.has(String(t.id)));
-    renderUnclassifiedTodos();
-    renderCategorizedTodos('important', 'notImportant');
 
   } else if (step === 2) {
-    // 2단계: 단기/장기
-    document.getElementById('categorizeTitle').textContent = isMobile
-      ? '가운데 테스크를 좌(단기) / 우(장기)로 스와이프하세요'
-      : '가운데 테스크를 좌(단기) / 우(장기)로 드래그하세요';
-    document.getElementById('categorizeStepText').textContent = '2단계: 단기 · 장기';
-    document.getElementById('leftZoneTitle').textContent = '단기';
-    document.getElementById('rightZoneTitle').textContent = '장기';
-    if (nextStepBtn) nextStepBtn.textContent = '명확화 마무리';
-    
-    // 우위 것들에 isImportant 속성 추가
-    categorizeData.important.forEach(item => {
-      item.isImportant = true;
-    });
-    
-    // 우위 아님 것들에 isImportant 속성 추가
-    categorizeData.notImportant.forEach(item => {
-      item.isImportant = false;
-    });
-    
-    // 2단계 베이스(우위+열위) 중 아직 단기/장기 분류 안 된 것만 중앙에
+    if (stepText) stepText.textContent = '2단계: 단기 · 장기';
+    if (labelLeft) labelLeft.textContent = '← 단기';
+    if (labelRight) labelRight.textContent = '장기 →';
+    if (nextStepBtn) nextStepBtn.textContent = '마무리';
+    if (countLeftSpan) countLeftSpan.innerHTML = '단기 <span id="leftCount">0</span>';
+    if (countRightSpan) countRightSpan.innerHTML = '장기 <span id="rightCount">0</span>';
+
+    categorizeData.important.forEach(item => { item.isImportant = true; });
+    categorizeData.notImportant.forEach(item => { item.isImportant = false; });
+
     const base = [...categorizeData.important, ...categorizeData.notImportant];
     const doneIds = new Set([...categorizeData.urgent, ...categorizeData.notUrgent].map(t => String(t.id)));
     categorizeData.unclassified = base.filter(t => !doneIds.has(String(t.id)));
-    renderUnclassifiedTodos();
-    renderCategorizedTodos('urgent', 'notUrgent');
   }
-  
-  updateZoneCounts();
-  // HTML5 DnD 대신 포인터 드래그를 사용 (카드가 자연스럽게 따라오도록)
+
+  updateSwipeCounts();
+  renderSwipeCard();
 }
 
-// 미분류 테스크 렌더링: 한 번에 한 테스크만 중앙에 표시, 드래그/스와이프로 좌(우위)·우(열위)에 놓으면 페이드
-function renderUnclassifiedTodos() {
-  const centerContent = document.getElementById('centerZoneContent');
-  centerContent.innerHTML = '';
-  centerContent.classList.remove('mobile-categorize');
+function updateSwipeCounts() {
+  const leftCount = document.getElementById('leftCount');
+  const rightCount = document.getElementById('rightCount');
+  const counter = document.getElementById('swipeCounter');
+
+  if (categorizeData.step === 1) {
+    if (leftCount) leftCount.textContent = categorizeData.important.length;
+    if (rightCount) rightCount.textContent = categorizeData.notImportant.length;
+    const total = categorizeData.all.length;
+    const done = categorizeData.important.length + categorizeData.notImportant.length;
+    if (counter) counter.textContent = done + ' / ' + total;
+  } else {
+    if (leftCount) leftCount.textContent = categorizeData.urgent.length;
+    if (rightCount) rightCount.textContent = categorizeData.notUrgent.length;
+    const total = categorizeData.important.length + categorizeData.notImportant.length;
+    const done = categorizeData.urgent.length + categorizeData.notUrgent.length;
+    if (counter) counter.textContent = done + ' / ' + total;
+  }
+}
+
+function renderSwipeCard() {
+  const deck = document.getElementById('swipeDeck');
+  if (!deck) return;
+  deck.innerHTML = '';
 
   if (categorizeData.unclassified.length === 0) {
-    centerContent.innerHTML = '<p class="clarify-all-done">모든 테스크가 분류되었습니다</p>';
+    deck.innerHTML = '<div class="swipe-all-done">모든 테스크가 분류되었습니다</div>';
     const nextBtn = document.getElementById('nextStepBtn');
     if (nextBtn) nextBtn.disabled = false;
     return;
   }
 
-  const item = categorizeData.unclassified[0];
-  const card = createCenterCardTodo(item);
-  card.classList.add('clarify-pop-in');
-  centerContent.appendChild(card);
   const nextBtn = document.getElementById('nextStepBtn');
   if (nextBtn) nextBtn.disabled = true;
+
+  const item = categorizeData.unclassified[0];
+  const card = document.createElement('div');
+  card.className = 'swipe-card';
+  card.dataset.id = String(item.id);
+  card.textContent = item.text;
+  deck.appendChild(card);
+  attachSwipeEvents(card, item);
 }
 
-// 분류된 테스크 렌더링
-function renderCategorizedTodos(leftKey, rightKey) {
-  const leftContent = document.getElementById('leftZoneContent');
-  const rightContent = document.getElementById('rightZoneContent');
-  
-  leftContent.innerHTML = '';
-  rightContent.innerHTML = '';
-  
-  categorizeData[leftKey].forEach(item => {
-    const todoEl = createZoneDraggableTodo(item);
-    leftContent.appendChild(todoEl);
+function attachSwipeEvents(card, item) {
+  let dragging = false;
+  let startX = 0;
+  let dx = 0;
+  const THRESHOLD = 80;
+  const labelLeft = document.getElementById('swipeLabelLeft');
+  const labelRight = document.getElementById('swipeLabelRight');
+
+  card.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    dragging = true;
+    startX = e.clientX;
+    dx = 0;
+    card.setPointerCapture(e.pointerId);
+    card.style.transition = 'none';
   });
-  
-  categorizeData[rightKey].forEach(item => {
-    const todoEl = createZoneDraggableTodo(item);
-    rightContent.appendChild(todoEl);
+
+  card.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    dx = e.clientX - startX;
+    const rotate = dx * 0.06;
+    card.style.transform = 'translateX(' + dx + 'px) rotate(' + rotate + 'deg)';
+
+    card.classList.remove('swipe-card-left-tint', 'swipe-card-right-tint');
+    if (labelLeft) labelLeft.classList.remove('swipe-hint');
+    if (labelRight) labelRight.classList.remove('swipe-hint');
+
+    if (dx < -THRESHOLD / 2) {
+      card.classList.add('swipe-card-left-tint');
+      if (labelLeft) labelLeft.classList.add('swipe-hint');
+    } else if (dx > THRESHOLD / 2) {
+      card.classList.add('swipe-card-right-tint');
+      if (labelRight) labelRight.classList.add('swipe-hint');
+    }
   });
+
+  function endSwipe() {
+    if (!dragging) return;
+    dragging = false;
+
+    card.classList.remove('swipe-card-left-tint', 'swipe-card-right-tint');
+    if (labelLeft) labelLeft.classList.remove('swipe-hint');
+    if (labelRight) labelRight.classList.remove('swipe-hint');
+
+    if (Math.abs(dx) >= THRESHOLD) {
+      const side = dx < 0 ? 'left' : 'right';
+      card.classList.add(side === 'left' ? 'swipe-fly-left' : 'swipe-fly-right');
+      setTimeout(() => {
+        commitClarifySetSide(item.id, side);
+      }, 350);
+    } else {
+      card.classList.add('swipe-snap');
+      card.style.transform = 'translateX(0) rotate(0deg)';
+      setTimeout(() => card.classList.remove('swipe-snap'), 300);
+    }
+  }
+
+  card.addEventListener('pointerup', endSwipe);
+  card.addEventListener('pointercancel', endSwipe);
 }
 
-// 중앙 한 장 카드: 드래그 또는 터치 스와이프로 좌(우위)/우(열위)에 놓으면 페이드 후 다음 테스크
-function createCenterCardTodo(item) {
-  const div = document.createElement('div');
-  div.className = 'clarify-current-card';
-  div.dataset.id = String(item.id);
-  div.textContent = item.text;
-
-  attachClarifyPointerDrag(div, (side) => {
-    commitClarifySetSide(item.id, side, div);
-  });
-
-  return div;
-}
-
-// 좌/우(현재 단계 기준)로 확정: 중앙 카드/존 아이템 모두 공용
-function commitClarifySetSide(itemId, side, el) {
+function commitClarifySetSide(itemId, side) {
   const idStr = String(itemId);
   const item = (categorizeData.all || []).find(t => String(t.id) === idStr);
   if (!item) return;
 
-  // 항상 중앙(미분류)에서는 제거
+  clarifyHistory.push({ step: categorizeData.step, itemId: idStr, side });
+
   categorizeData.unclassified = (categorizeData.unclassified || []).filter(t => String(t.id) !== idStr);
 
   if (categorizeData.step === 1) {
@@ -1020,294 +1060,47 @@ function commitClarifySetSide(itemId, side, el) {
     else categorizeData.notUrgent.push(item);
   }
 
-  if (el) {
-    el.classList.add('clarify-card-faded');
-    el.style.transform = '';
-  }
-  setTimeout(() => {
-    setupCategorizeStep(); // unclassified 재계산 + 렌더
-  }, 220);
+  updateSwipeCounts();
+  renderSwipeCard();
 }
 
-// 좌/우 존에 보이는 아이템도 드래그로 재분류 가능
-function createZoneDraggableTodo(item) {
-  const div = document.createElement('div');
-  div.className = 'clarify-zone-item';
-  div.dataset.id = String(item.id);
-  div.textContent = item.text;
-  attachClarifyPointerDrag(div, (side) => {
-    commitClarifySetSide(item.id, side, div);
-  });
-  return div;
-}
-
-// 포인터 기반 드래그(마우스+터치): 자연스럽게 따라오게
-function attachClarifyPointerDrag(el, onDropSide) {
-  let dragging = false;
-  let startX = 0, startY = 0;
-  let dx = 0, dy = 0;
-
-  function clearZoneHighlights() {
-    document.getElementById('leftZone')?.classList.remove('drag-over', 'left-active');
-    document.getElementById('rightZone')?.classList.remove('drag-over', 'right-active');
-  }
-
-  function getDropSideByCenter() {
-    const leftZone = document.getElementById('leftZone');
-    const rightZone = document.getElementById('rightZone');
-    if (!leftZone || !rightZone) return null;
-    const r = el.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    const l = leftZone.getBoundingClientRect();
-    const rr = rightZone.getBoundingClientRect();
-    const inLeft = cx >= l.left && cx <= l.right && cy >= l.top && cy <= l.bottom;
-    const inRight = cx >= rr.left && cx <= rr.right && cy >= rr.top && cy <= rr.bottom;
-    if (inLeft) return 'left';
-    if (inRight) return 'right';
-    return null;
-  }
-
-  let origRect = null;
-  let placeholder = null;
-
-  el.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    e.preventDefault();
-    dragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    dx = 0; dy = 0;
-    el.setPointerCapture(e.pointerId);
-
-    origRect = el.getBoundingClientRect();
-    placeholder = document.createElement('div');
-    placeholder.style.width = origRect.width + 'px';
-    placeholder.style.height = origRect.height + 'px';
-    placeholder.style.visibility = 'hidden';
-    if (el.parentNode) el.parentNode.insertBefore(placeholder, el);
-
-    el.classList.add('clarify-dragging');
-    el.style.transition = 'none';
-    el.style.left = origRect.left + 'px';
-    el.style.top = origRect.top + 'px';
-    el.style.width = origRect.width + 'px';
-    el.style.margin = '0';
-  });
-
-  el.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    e.preventDefault();
-    dx = e.clientX - startX;
-    dy = e.clientY - startY;
-    el.style.left = (origRect.left + dx) + 'px';
-    el.style.top = (origRect.top + dy) + 'px';
-
-    clearZoneHighlights();
-    const side = getDropSideByCenter();
-    if (side === 'left') document.getElementById('leftZone')?.classList.add('drag-over', 'left-active');
-    if (side === 'right') document.getElementById('rightZone')?.classList.add('drag-over', 'right-active');
-  });
-
-  function endPointer() {
-    if (!dragging) return;
-    dragging = false;
-    const side = getDropSideByCenter();
-    clearZoneHighlights();
-    el.classList.remove('clarify-dragging');
-    el.style.transition = '';
-    el.style.left = '';
-    el.style.top = '';
-    el.style.width = '';
-    el.style.margin = '';
-    el.style.transform = '';
-    if (placeholder && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
-    placeholder = null;
-    if (side) onDropSide(side);
-  }
-
-  el.addEventListener('pointerup', endPointer);
-  el.addEventListener('pointercancel', endPointer);
-}
-
-// 드롭/스와이프 확정: 카드 페이드 후 데이터 반영 및 다음 테스크 표시
-function commitClarifyDrop(itemId, side, cardEl) {
-  // (구 버전 호환) → 새 구현으로 위임
-  commitClarifySetSide(itemId, side, cardEl);
-}
-
-// 드래그 가능한 테스크 생성 (기존 다중 카드용, 호환)
-function createDraggableTodo(item) {
-  const div = document.createElement('div');
-  div.className = 'draggable-todo';
-  div.draggable = true;
-  div.dataset.id = item.id;
-  div.textContent = item.text;
-  div.addEventListener('dragstart', handleDragStart);
-  div.addEventListener('dragend', handleDragEnd);
-  return div;
-}
-
-// 분류된 테스크 생성
-function createCategorizedTodo(item) {
-  const div = document.createElement('div');
-  div.className = 'categorized-todo';
-  div.textContent = item.text;
-  return div;
-}
-
-// 모바일/터치용: 테스크 카드 — 왼쪽/오른쪽 큰 터치 영역(배너가 위·아래에 보이므로 위=우위/단기, 아래=안우위/안단기)
-function createMobileCategorizeTodo(item) {
-  const step = categorizeData.step;
-  const leftLabel = step === 1 ? '↑ 우위' : '↑ 단기';
-  const rightLabel = step === 1 ? '↓ 우위 아님' : '↓ 단기 아님';
-
-  const card = document.createElement('div');
-  card.className = 'mobile-categorize-todo';
-  card.dataset.id = String(item.id);
-  card.innerHTML = `
-    <div class="mobile-categorize-text">${escapeHtml(item.text)}</div>
-    <div class="mobile-categorize-tap-row">
-      <div class="mobile-tap-area mobile-tap-left" role="button" tabindex="0" data-id="${item.id}" data-side="left">${escapeHtml(leftLabel)}</div>
-      <div class="mobile-tap-area mobile-tap-right" role="button" tabindex="0" data-id="${item.id}" data-side="right">${escapeHtml(rightLabel)}</div>
-    </div>
-  `;
-
-  card.querySelectorAll('.mobile-tap-area').forEach(el => {
-    const id = el.dataset.id;
-    const side = el.dataset.side;
-
-    function doMove(e) {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      lastMobileCatTouchTime = Date.now();
-      moveTodoToZone(id, side);
+function undoLastSwipe() {
+  if (clarifyHistory.length === 0) {
+    if (categorizeData.step === 2) {
+      categorizeData.step = 1;
+      setupCategorizeStep();
+    } else {
+      switchView('brainDump');
+      updateTrashButton();
     }
+    return;
+  }
 
-    el.addEventListener('touchend', function(ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      doMove(ev);
-    }, { passive: false });
+  const last = clarifyHistory[clarifyHistory.length - 1];
 
-    el.addEventListener('click', function(ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (Date.now() - lastMobileCatTouchTime < 350) return;
-      doMove(ev);
-    });
-  });
+  if (last.step !== categorizeData.step) {
+    if (categorizeData.step === 2) {
+      categorizeData.step = 1;
+      setupCategorizeStep();
+    } else {
+      switchView('brainDump');
+      updateTrashButton();
+    }
+    return;
+  }
 
-  return card;
-}
+  clarifyHistory.pop();
+  const idStr = last.itemId;
 
-// 터치 후 클릭 이벤트 중복 방지용
-let lastMobileCatTouchTime = 0;
-
-// 모바일: 테스크를 좌(우위/단기) 또는 우(안우위/안단기) 존으로 이동
-function moveTodoToZone(itemId, side) {
-  const item = categorizeData.unclassified.find(t => t.id == itemId);
-  if (!item) return;
-
-  if (categorizeData.step === 1) {
-    if (side === 'left') categorizeData.important.push(item);
-    else categorizeData.notImportant.push(item);
+  if (last.step === 1) {
+    categorizeData.important = categorizeData.important.filter(t => String(t.id) !== idStr);
+    categorizeData.notImportant = categorizeData.notImportant.filter(t => String(t.id) !== idStr);
   } else {
-    if (side === 'left') categorizeData.urgent.push(item);
-    else categorizeData.notUrgent.push(item);
+    categorizeData.urgent = categorizeData.urgent.filter(t => String(t.id) !== idStr);
+    categorizeData.notUrgent = categorizeData.notUrgent.filter(t => String(t.id) !== idStr);
   }
-  categorizeData.unclassified = categorizeData.unclassified.filter(t => t.id != itemId);
 
-  renderUnclassifiedTodos();
-  renderCategorizedTodos(
-    categorizeData.step === 1 ? 'important' : 'urgent',
-    categorizeData.step === 1 ? 'notImportant' : 'notUrgent'
-  );
-  updateZoneCounts();
-}
-
-// 드래그 시작
-function handleDragStart(e) {
-  draggedElement = e.target;
-  e.target.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-}
-
-// 드래그 종료
-function handleDragEnd(e) {
-  e.target.classList.remove('dragging');
-  draggedElement = null;
-  
-  // 모든 드롭 존에서 drag-over 클래스 제거
-  document.querySelectorAll('.drop-zone').forEach(zone => {
-    zone.classList.remove('drag-over', 'left-active', 'right-active');
-  });
-}
-
-// 드래그 앤 드롭 설정
-function setupDragAndDrop() {
-  const leftZone = document.getElementById('leftZone');
-  const rightZone = document.getElementById('rightZone');
-  const centerZone = document.getElementById('centerZone');
-  
-  // 드롭 존 이벤트
-  [leftZone, rightZone, centerZone].forEach(zone => {
-    zone.addEventListener('dragover', handleDragOver);
-    zone.addEventListener('drop', handleDrop);
-    zone.addEventListener('dragleave', handleDragLeave);
-  });
-}
-
-// 드래그 오버
-function handleDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  
-  const zone = e.currentTarget;
-  if (zone.id === 'leftZone') {
-    zone.classList.add('drag-over', 'left-active');
-    document.getElementById('rightZone').classList.remove('drag-over', 'right-active');
-  } else if (zone.id === 'rightZone') {
-    zone.classList.add('drag-over', 'right-active');
-    document.getElementById('leftZone').classList.remove('drag-over', 'left-active');
-  } else {
-    document.getElementById('leftZone').classList.remove('drag-over', 'left-active');
-    document.getElementById('rightZone').classList.remove('drag-over', 'right-active');
-  }
-}
-
-// 드래그 리브
-function handleDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over', 'left-active', 'right-active');
-}
-
-// 드롭 처리: 좌/우 존에 놓으면 페이드 후 반영
-function handleDrop(e) {
-  e.preventDefault();
-  if (!draggedElement) return;
-  const zone = e.currentTarget;
-  const itemId = draggedElement.dataset.id;
-  if (zone.id === 'leftZone' || zone.id === 'rightZone') {
-    const side = zone.id === 'leftZone' ? 'left' : 'right';
-    commitClarifyDrop(itemId, side, draggedElement);
-    zone.classList.remove('drag-over', 'left-active', 'right-active');
-    document.getElementById('leftZone').classList.remove('drag-over', 'left-active', 'right-active');
-    document.getElementById('rightZone').classList.remove('drag-over', 'left-active', 'right-active');
-  }
-  draggedElement = null;
-}
-
-// 존 카운트 업데이트
-function updateZoneCounts() {
-  if (categorizeData.step === 1) {
-    document.getElementById('leftCount').textContent = categorizeData.important.length;
-    document.getElementById('rightCount').textContent = categorizeData.notImportant.length;
-  } else {
-    document.getElementById('leftCount').textContent = categorizeData.urgent.length;
-    document.getElementById('rightCount').textContent = categorizeData.notUrgent.length;
-  }
+  setupCategorizeStep();
 }
 
 // 다음 단계로 이동
@@ -1961,8 +1754,9 @@ function renderSearchResults(query) {
   const results = [];
 
   (appData.brainDump || []).forEach(item => {
+    const id = item.id || '';
     const text = typeof item === 'string' ? item : (item.text || '');
-    if (text.toLowerCase().includes(q)) results.push({ text, view: 'brainDump' });
+    if (text.toLowerCase().includes(q)) results.push({ id, text, view: 'brainDump' });
   });
 
   (appData.todos || []).forEach(todo => {
@@ -1970,7 +1764,7 @@ function renderSearchResults(query) {
       let view = 'matrix';
       if (todo.status === 'trash') view = 'trash';
       else if (todo.deadline) view = 'plan';
-      results.push({ text: todo.text, view });
+      results.push({ id: todo.id, text: todo.text, view, quadrant: todo.quadrant });
     }
   });
 
@@ -1980,7 +1774,7 @@ function renderSearchResults(query) {
   }
 
   container.innerHTML = results.map(r => `
-    <div class="search-result-item" data-view="${r.view}">
+    <div class="search-result-item" data-view="${r.view}" data-id="${r.id || ''}" data-text="${escapeHtml(r.text)}">
       <div>${escapeHtml(r.text)}</div>
       <div class="search-result-view">${viewLabel[r.view] || r.view}</div>
     </div>
@@ -1989,6 +1783,8 @@ function renderSearchResults(query) {
   container.querySelectorAll('.search-result-item').forEach(el => {
     el.addEventListener('click', () => {
       const v = el.dataset.view;
+      const itemId = el.dataset.id;
+      const itemText = el.dataset.text;
       if (v && v !== 'trash' && VIEW_ORDER.includes(v)) {
         switchView(v);
       }
@@ -1996,8 +1792,56 @@ function renderSearchResults(query) {
       if (bar) bar.classList.remove('search-active');
       document.getElementById('searchInput').value = '';
       container.innerHTML = '';
+
+      setTimeout(() => highlightSearchTarget(v, itemId, itemText), 150);
     });
   });
+}
+
+function highlightSearchTarget(view, id, text) {
+  let target = null;
+
+  if (view === 'brainDump') {
+    const items = document.querySelectorAll('.dump-item-list li');
+    for (const li of items) {
+      const span = li.querySelector('.brain-dump-item-text');
+      if (span && span.textContent === text) { target = li; break; }
+    }
+  } else if (view === 'matrix') {
+    const items = document.querySelectorAll('.matrix-quadrant .todo-item');
+    for (const el of items) {
+      if (el.dataset.id == id) { target = el; break; }
+    }
+  } else if (view === 'plan' || view === 'execution') {
+    const items = document.querySelectorAll('.todo-item, .plan-item, .exec-item');
+    for (const el of items) {
+      if (el.dataset.id == id) { target = el; break; }
+    }
+  } else if (view === 'trash') {
+    openTrashModal();
+    setTimeout(() => {
+      const items = document.querySelectorAll('.trash-item');
+      for (const el of items) {
+        const span = el.querySelector('.trash-item-text');
+        if (span && span.textContent === text) {
+          el.classList.add('search-highlight');
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        }
+      }
+    }, 200);
+    return;
+  }
+
+  if (!target) {
+    const allItems = document.querySelectorAll('[data-id="' + id + '"]');
+    if (allItems.length) target = allItems[0];
+  }
+
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('search-highlight');
+  }
 }
 
 // ── 설정 모달 ──
@@ -2007,53 +1851,19 @@ function openSettingsModal() {
   modal.classList.add('active');
   modal.querySelector('.close').onclick = () => modal.classList.remove('active');
 
-  const exportBtn = document.getElementById('exportDataBtn');
-  const importBtn = document.getElementById('importDataBtn');
-  const importFile = document.getElementById('importFileInput');
+  const darkToggle = document.getElementById('settingDarkMode');
+  if (darkToggle) {
+    darkToggle.checked = document.body.classList.contains('dark');
+    if (!darkToggle._bound) {
+      darkToggle._bound = true;
+      darkToggle.addEventListener('change', () => {
+        document.body.classList.toggle('dark', darkToggle.checked);
+        localStorage.setItem('dblz_dark', darkToggle.checked ? '1' : '0');
+      });
+    }
+  }
+
   const resetBtn = document.getElementById('resetAllBtn');
-
-  if (exportBtn && !exportBtn._bound) {
-    exportBtn._bound = true;
-    exportBtn.addEventListener('click', () => {
-      const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'dblz-backup-' + getTodayDateString() + '.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  }
-
-  if (importBtn && !importBtn._bound) {
-    importBtn._bound = true;
-    importBtn.addEventListener('click', () => importFile && importFile.click());
-  }
-
-  if (importFile && !importFile._bound) {
-    importFile._bound = true;
-    importFile.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const imported = JSON.parse(ev.target.result);
-          if (confirm('현재 데이터를 가져온 데이터로 덮어쓰시겠습니까?')) {
-            Object.assign(appData, imported);
-            saveData();
-            alert('데이터를 가져왔습니다. 새로고침합니다.');
-            location.reload();
-          }
-        } catch (err) {
-          alert('유효하지 않은 파일입니다.');
-        }
-      };
-      reader.readAsText(file);
-      importFile.value = '';
-    });
-  }
-
   if (resetBtn && !resetBtn._bound) {
     resetBtn._bound = true;
     resetBtn.addEventListener('click', () => {
@@ -2063,6 +1873,12 @@ function openSettingsModal() {
         location.reload();
       }
     });
+  }
+}
+
+function initDarkMode() {
+  if (localStorage.getItem('dblz_dark') === '1') {
+    document.body.classList.add('dark');
   }
 }
 
@@ -2090,6 +1906,10 @@ function setupFloatingBarBehavior() {
   document.addEventListener('pointerdown', (e) => {
     if (bar.contains(e.target)) return;
     if (e.target.closest('.modal.active')) return;
+    if (barHidden && e.clientY >= window.innerHeight - 80) {
+      showBar();
+      return;
+    }
     hideBar();
   });
 

@@ -31,10 +31,20 @@
     <div id="brainDumpView" class="view active">
       <section class="brain-dump-section">
         <div class="brain-dump-layout">
-          <div class="brain-dump-main" id="brainDumpMain">
+          <div class="dump-panel dump-panel-list">
+            <div class="dump-panel-header">
+              <h3>쏟아낸 테스크 <span id="dumpCount" class="dump-count">0</span></h3>
+              <div class="dump-panel-actions">
+                <button id="clarifyBtn" class="btn-primary btn-small">명확화</button>
+                <button id="clearBrainDumpBtn" class="btn-clear btn-small">전체 삭제</button>
+              </div>
+            </div>
+            <ul id="brainDumpList" class="dump-item-list"></ul>
+          </div>
+          <div class="dump-panel dump-panel-input">
             <h2>매일 쏟아내기</h2>
             <div class="date-picker-row">
-              <span class="brain-dump-date-text" id="brainDumpDateText"></span>
+              <span id="brainDumpDateText" class="brain-dump-date-text"></span>
               <button type="button" id="brainDumpDateBtn" class="date-picker-btn" title="날짜 선택">
                 <span id="brainDumpDateBtnLabel">오늘</span>
               </button>
@@ -44,69 +54,32 @@
               <textarea id="brainDumpInput" placeholder="테스크 입력 후 Enter 또는 추가&#10;예: 보고서 작성, 회의 준비"></textarea>
               <button id="addBrainDumpBtn" class="btn-primary">추가</button>
             </div>
-            <div class="dump-list-block dump-list-left">
-              <div class="dump-list-header">
-                <h4>쏟아낸 테스크</h4>
-                <div class="dump-list-actions">
-                  <button id="clearBrainDumpBtn" class="btn-clear btn-small">전체 삭제</button>
-                </div>
-              </div>
-              <ul id="brainDumpList" class="brain-dump-list-ul"></ul>
-              <div class="dump-list-footer">
-                <button type="button" id="clarifyBtn" class="btn-primary">명확화</button>
-              </div>
-            </div>
           </div>
-          <aside class="brain-dump-aside">
-            <div class="brain-dump-banner">
-            <div class="banner-block unclassified-dump-block">
-              <h4>분류 안한 테스크</h4>
-              <ul id="unclassifiedDumpList" class="unclassified-dump-list"></ul>
-            </div>
-            <div class="banner-block classified-dump-block">
-              <h4>분류된 테스크</h4>
-              <ul id="classifiedDumpList" class="classified-dump-list"></ul>
-            </div>
-            </div>
-          </aside>
         </div>
       </section>
     </div>
 
-    <!-- 명확화 화면 (쏟아낸 테스크 분류: 우위/단기 드래그) -->
+    <!-- 명확화 화면: 스와이프 카드 분류 -->
     <div id="clarifyView" class="view">
       <section class="clarify-section">
         <p id="clarifyEmptyMessage" class="clarify-empty-message" style="display: none;">명확화할 테스크가 없습니다.</p>
-        <div id="clarifyContent" class="clarify-content">
-          <div class="categorize-header">
-            <h3 id="categorizeTitle">테스크를 드래그하여 분류하세요</h3>
-            <div class="categorize-step-indicator">
-              <span id="categorizeStepText">1단계: 우위 분류</span>
-            </div>
+        <div id="clarifyContent" class="clarify-content" style="display:none;">
+          <div class="swipe-header">
+            <span id="categorizeStepText" class="swipe-step">1단계: 우위 · 열위</span>
+            <span id="swipeCounter" class="swipe-counter">0 / 0</span>
+            <button id="undoSwipeBtn" class="undo-swipe-btn" title="이전 선택">↩ 이전</button>
           </div>
-          <div class="drag-drop-container">
-            <div id="leftZone" class="drop-zone">
-              <div class="zone-header">
-                <h4 id="leftZoneTitle">우위</h4>
-                <span class="zone-count" id="leftCount">0</span>
-              </div>
-              <div id="leftZoneContent" class="zone-content"></div>
-            </div>
-            <div id="centerZone" class="center-zone">
-              <div id="centerZoneContent" class="center-content"></div>
-            </div>
-            <div id="rightZone" class="drop-zone">
-              <div class="zone-header">
-                <h4 id="rightZoneTitle">열위</h4>
-                <span class="zone-count" id="rightCount">0</span>
-              </div>
-              <div id="rightZoneContent" class="zone-content"></div>
-            </div>
+          <div class="swipe-area">
+            <div class="swipe-label swipe-label-left" id="swipeLabelLeft">← 우위</div>
+            <div class="swipe-deck" id="swipeDeck"></div>
+            <div class="swipe-label swipe-label-right" id="swipeLabelRight">열위 →</div>
+          </div>
+          <div class="swipe-counts" id="swipeCounts">
+            <span class="swipe-count-left">우위 <span id="leftCount">0</span></span>
+            <span class="swipe-count-right">열위 <span id="rightCount">0</span></span>
           </div>
           <div class="categorize-actions">
-            <button id="prevStepBtn" class="btn-secondary" style="display:none;">이전 단계</button>
             <button id="nextStepBtn" class="btn-primary" disabled>다음 단계</button>
-            <button id="cancelCategorizeBtn" class="btn-secondary">나가기</button>
           </div>
         </div>
       </section>
@@ -281,14 +254,6 @@
         <div class="settings-item">
           <label for="settingDarkMode">다크 모드</label>
           <input type="checkbox" id="settingDarkMode">
-        </div>
-        <div class="settings-item">
-          <label>데이터 관리</label>
-          <div class="settings-item-actions">
-            <button id="exportDataBtn" class="btn-secondary btn-small">내보내기</button>
-            <button id="importDataBtn" class="btn-secondary btn-small">가져오기</button>
-            <input type="file" id="importFileInput" accept=".json" style="display:none">
-          </div>
         </div>
         <div class="settings-item">
           <label>전체 초기화</label>
