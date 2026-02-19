@@ -147,7 +147,6 @@ function setupEventListeners() {
       }
       
       if (confirm(`잡생각의 모든 항목(${trashCount}개)을 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) {
-        // 잡생각의 모든 항목 완전히 삭제
         appData.todos = appData.todos.filter(t => t.status !== 'trash');
         saveData();
         updateTrashModal();
@@ -156,6 +155,18 @@ function setupEventListeners() {
         alert('잡생각이 비워졌습니다.');
       }
     });
+  }
+
+  // 검색 버튼
+  const searchFloatBtn = document.getElementById('searchFloatBtn');
+  if (searchFloatBtn) {
+    searchFloatBtn.addEventListener('click', openSearchModal);
+  }
+
+  // 설정 버튼
+  const settingsFloatBtn = document.getElementById('settingsFloatBtn');
+  if (settingsFloatBtn) {
+    settingsFloatBtn.addEventListener('click', openSettingsModal);
   }
 }
 
@@ -1058,6 +1069,9 @@ function attachClarifyPointerDrag(el, onDropSide) {
     return null;
   }
 
+  let origRect = null;
+  let placeholder = null;
+
   el.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     dragging = true;
@@ -1065,15 +1079,28 @@ function attachClarifyPointerDrag(el, onDropSide) {
     startY = e.clientY;
     dx = 0; dy = 0;
     el.setPointerCapture(e.pointerId);
+
+    origRect = el.getBoundingClientRect();
+    placeholder = document.createElement('div');
+    placeholder.style.width = origRect.width + 'px';
+    placeholder.style.height = origRect.height + 'px';
+    placeholder.style.visibility = 'hidden';
+    el.parentNode.insertBefore(placeholder, el);
+
     el.classList.add('clarify-dragging');
     el.style.transition = 'none';
+    el.style.left = origRect.left + 'px';
+    el.style.top = origRect.top + 'px';
+    el.style.width = origRect.width + 'px';
+    el.style.margin = '0';
   });
 
   el.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     dx = e.clientX - startX;
     dy = e.clientY - startY;
-    el.style.transform = `translate(${dx}px, ${dy}px)`;
+    el.style.left = (origRect.left + dx) + 'px';
+    el.style.top = (origRect.top + dy) + 'px';
 
     clearZoneHighlights();
     const side = getDropSideByCenter();
@@ -1086,6 +1113,12 @@ function attachClarifyPointerDrag(el, onDropSide) {
     dragging = false;
     el.classList.remove('clarify-dragging');
     el.style.transition = '';
+    el.style.left = '';
+    el.style.top = '';
+    el.style.width = '';
+    el.style.margin = '';
+    if (placeholder && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+    placeholder = null;
     const side = getDropSideByCenter();
     clearZoneHighlights();
     if (side) onDropSide(side);
@@ -1862,4 +1895,139 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// ── 검색 모달 ──
+function openSearchModal() {
+  const modal = document.getElementById('searchModal');
+  if (!modal) return;
+  modal.classList.add('active');
+  const input = document.getElementById('searchInput');
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
+  renderSearchResults('');
+
+  if (!input._bound) {
+    input._bound = true;
+    input.addEventListener('input', () => renderSearchResults(input.value));
+  }
+
+  modal.querySelector('.close').onclick = () => modal.classList.remove('active');
+}
+
+function renderSearchResults(query) {
+  const container = document.getElementById('searchResults');
+  if (!container) return;
+  const q = (query || '').trim().toLowerCase();
+  if (!q) {
+    container.innerHTML = '<div class="search-no-results">검색어를 입력하세요</div>';
+    return;
+  }
+
+  const viewLabel = { brainDump: '쏟아내기', clarify: '명확화', matrix: '매트릭스', plan: '계획 및 정리', execution: '실행' };
+  const results = [];
+
+  (appData.brainDump || []).forEach(item => {
+    const text = typeof item === 'string' ? item : (item.text || '');
+    if (text.toLowerCase().includes(q)) results.push({ text, view: 'brainDump' });
+  });
+
+  (appData.todos || []).forEach(todo => {
+    if ((todo.text || '').toLowerCase().includes(q)) {
+      let view = 'matrix';
+      if (todo.status === 'trash') view = 'trash';
+      else if (todo.deadline) view = 'plan';
+      results.push({ text: todo.text, view });
+    }
+  });
+
+  if (results.length === 0) {
+    container.innerHTML = '<div class="search-no-results">결과가 없습니다</div>';
+    return;
+  }
+
+  container.innerHTML = results.map(r => `
+    <div class="search-result-item" data-view="${r.view}">
+      <div>${escapeHtml(r.text)}</div>
+      <div class="search-result-view">${viewLabel[r.view] || r.view}</div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.search-result-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const v = el.dataset.view;
+      if (v && v !== 'trash' && VIEW_ORDER.includes(v)) {
+        switchView(v);
+      }
+      document.getElementById('searchModal').classList.remove('active');
+    });
+  });
+}
+
+// ── 설정 모달 ──
+function openSettingsModal() {
+  const modal = document.getElementById('settingsModal');
+  if (!modal) return;
+  modal.classList.add('active');
+  modal.querySelector('.close').onclick = () => modal.classList.remove('active');
+
+  const exportBtn = document.getElementById('exportDataBtn');
+  const importBtn = document.getElementById('importDataBtn');
+  const importFile = document.getElementById('importFileInput');
+  const resetBtn = document.getElementById('resetAllBtn');
+
+  if (exportBtn && !exportBtn._bound) {
+    exportBtn._bound = true;
+    exportBtn.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'dblz-backup-' + getTodayDateString() + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  if (importBtn && !importBtn._bound) {
+    importBtn._bound = true;
+    importBtn.addEventListener('click', () => importFile && importFile.click());
+  }
+
+  if (importFile && !importFile._bound) {
+    importFile._bound = true;
+    importFile.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const imported = JSON.parse(ev.target.result);
+          if (confirm('현재 데이터를 가져온 데이터로 덮어쓰시겠습니까?')) {
+            Object.assign(appData, imported);
+            saveData();
+            alert('데이터를 가져왔습니다. 새로고침합니다.');
+            location.reload();
+          }
+        } catch (err) {
+          alert('유효하지 않은 파일입니다.');
+        }
+      };
+      reader.readAsText(file);
+      importFile.value = '';
+    });
+  }
+
+  if (resetBtn && !resetBtn._bound) {
+    resetBtn._bound = true;
+    resetBtn.addEventListener('click', () => {
+      if (confirm('정말로 모든 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+        localStorage.clear();
+        alert('초기화되었습니다. 새로고침합니다.');
+        location.reload();
+      }
+    });
+  }
 }
