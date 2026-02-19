@@ -157,17 +157,16 @@ function setupEventListeners() {
     });
   }
 
-  // 검색 버튼
-  const searchFloatBtn = document.getElementById('searchFloatBtn');
-  if (searchFloatBtn) {
-    searchFloatBtn.addEventListener('click', openSearchModal);
-  }
+  // 인라인 검색 설정
+  setupInlineSearch();
 
   // 설정 버튼
   const settingsFloatBtn = document.getElementById('settingsFloatBtn');
   if (settingsFloatBtn) {
     settingsFloatBtn.addEventListener('click', openSettingsModal);
   }
+
+  setupFloatingBarBehavior();
 }
 
 // 뷰 전환
@@ -1074,6 +1073,7 @@ function attachClarifyPointerDrag(el, onDropSide) {
 
   el.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
     dragging = true;
     startX = e.clientX;
     startY = e.clientY;
@@ -1085,7 +1085,7 @@ function attachClarifyPointerDrag(el, onDropSide) {
     placeholder.style.width = origRect.width + 'px';
     placeholder.style.height = origRect.height + 'px';
     placeholder.style.visibility = 'hidden';
-    el.parentNode.insertBefore(placeholder, el);
+    if (el.parentNode) el.parentNode.insertBefore(placeholder, el);
 
     el.classList.add('clarify-dragging');
     el.style.transition = 'none';
@@ -1097,6 +1097,7 @@ function attachClarifyPointerDrag(el, onDropSide) {
 
   el.addEventListener('pointermove', (e) => {
     if (!dragging) return;
+    e.preventDefault();
     dx = e.clientX - startX;
     dy = e.clientY - startY;
     el.style.left = (origRect.left + dx) + 'px';
@@ -1111,18 +1112,18 @@ function attachClarifyPointerDrag(el, onDropSide) {
   function endPointer() {
     if (!dragging) return;
     dragging = false;
+    const side = getDropSideByCenter();
+    clearZoneHighlights();
     el.classList.remove('clarify-dragging');
     el.style.transition = '';
     el.style.left = '';
     el.style.top = '';
     el.style.width = '';
     el.style.margin = '';
+    el.style.transform = '';
     if (placeholder && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
     placeholder = null;
-    const side = getDropSideByCenter();
-    clearZoneHighlights();
     if (side) onDropSide(side);
-    else el.style.transform = '';
   }
 
   el.addEventListener('pointerup', endPointer);
@@ -1897,28 +1898,58 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ── 검색 모달 ──
-function openSearchModal() {
-  const modal = document.getElementById('searchModal');
-  if (!modal) return;
-  modal.classList.add('active');
+// ── 인라인 검색 (플로팅 바 내장) ──
+function setupInlineSearch() {
+  const bar = document.getElementById('floatingBar');
+  const searchArea = document.getElementById('floatingSearch');
   const input = document.getElementById('searchInput');
-  if (input) {
+  const closeBtn = document.getElementById('searchCloseBtn');
+  const resultsPanel = document.getElementById('searchResultsPanel');
+  if (!bar || !searchArea || !input) return;
+
+  function openSearch() {
+    bar.classList.add('search-active');
+    bar.classList.remove('bar-hidden');
     input.value = '';
-    input.focus();
-  }
-  renderSearchResults('');
-
-  if (!input._bound) {
-    input._bound = true;
-    input.addEventListener('input', () => renderSearchResults(input.value));
+    renderSearchResults('');
+    setTimeout(() => input.focus(), 350);
   }
 
-  modal.querySelector('.close').onclick = () => modal.classList.remove('active');
+  function closeSearch() {
+    bar.classList.remove('search-active');
+    input.value = '';
+    if (resultsPanel) resultsPanel.innerHTML = '';
+  }
+
+  searchArea.addEventListener('click', (e) => {
+    if (!bar.classList.contains('search-active')) {
+      e.stopPropagation();
+      openSearch();
+    }
+  });
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeSearch();
+    });
+  }
+
+  input.addEventListener('input', () => renderSearchResults(input.value));
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSearch();
+  });
+
+  document.addEventListener('pointerdown', (e) => {
+    if (!bar.classList.contains('search-active')) return;
+    if (bar.contains(e.target)) return;
+    closeSearch();
+  });
 }
 
 function renderSearchResults(query) {
-  const container = document.getElementById('searchResults');
+  const container = document.getElementById('searchResultsPanel');
   if (!container) return;
   const q = (query || '').trim().toLowerCase();
   if (!q) {
@@ -1961,7 +1992,10 @@ function renderSearchResults(query) {
       if (v && v !== 'trash' && VIEW_ORDER.includes(v)) {
         switchView(v);
       }
-      document.getElementById('searchModal').classList.remove('active');
+      const bar = document.getElementById('floatingBar');
+      if (bar) bar.classList.remove('search-active');
+      document.getElementById('searchInput').value = '';
+      container.innerHTML = '';
     });
   });
 }
@@ -2030,4 +2064,53 @@ function openSettingsModal() {
       }
     });
   }
+}
+
+// ── 플로팅 바 숨김/표시 ──
+function setupFloatingBarBehavior() {
+  const bar = document.getElementById('floatingBar');
+  if (!bar) return;
+
+  let barHidden = false;
+  let barTouchStartY = 0;
+
+  function hideBar() {
+    if (barHidden) return;
+    if (bar.classList.contains('search-active')) return;
+    barHidden = true;
+    bar.classList.add('bar-hidden');
+  }
+
+  function showBar() {
+    if (!barHidden) return;
+    barHidden = false;
+    bar.classList.remove('bar-hidden');
+  }
+
+  document.addEventListener('pointerdown', (e) => {
+    if (bar.contains(e.target)) return;
+    if (e.target.closest('.modal.active')) return;
+    hideBar();
+  });
+
+  bar.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    barTouchStartY = e.clientY;
+  });
+
+  bar.addEventListener('pointerup', (e) => {
+    e.stopPropagation();
+    const dy = barTouchStartY - e.clientY;
+    if (barHidden && dy > 10) {
+      showBar();
+    }
+  });
+
+  bar.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (barHidden) {
+      showBar();
+      e.preventDefault();
+    }
+  });
 }

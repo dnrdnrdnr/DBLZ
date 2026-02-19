@@ -148,6 +148,23 @@ body {
   box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-bottom: none;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.floating-bar.bar-hidden {
+  transform: translateX(-50%) translateY(calc(100% - 14px));
+}
+
+.floating-bar-peek {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
 }
 
 .floating-bar-btn {
@@ -198,59 +215,152 @@ body {
   font-weight: 700;
 }
 
-/* 검색 모달 */
-.search-modal {
-  max-width: 500px;
-}
-
-.search-input-wrap {
-  margin-bottom: 16px;
-}
-
-.search-input-wrap input {
-  width: 100%;
-  padding: 10px 14px;
-  border: 2px solid #ddd;
+/* 인라인 검색: 버튼 → 검색창 전환 */
+.floating-bar-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
   border-radius: 10px;
-  font-size: 15px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: flex 0.35s ease, background 0.2s;
+  flex: 0 0 auto;
+  overflow: hidden;
+  position: relative;
+}
+
+.floating-bar-search:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+}
+
+.floating-bar-search .search-icon {
+  flex-shrink: 0;
+}
+
+.floating-bar-search .search-label {
+  transition: opacity 0.2s, width 0.2s;
+}
+
+.floating-bar-search .search-inline-input {
+  display: none;
+  border: none;
+  background: transparent;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
   outline: none;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
 }
 
-.search-input-wrap input:focus {
-  border-color: #4a90d9;
+.floating-bar-search .search-inline-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.search-results {
+.floating-bar-search .search-close-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.floating-bar-search .search-close-btn:hover {
+  color: white;
+}
+
+.floating-bar.search-active .floating-bar-hideable {
+  opacity: 0;
+  width: 0;
+  padding: 0;
+  margin: 0;
+  border: none;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease, width 0.3s ease, padding 0.3s ease;
+}
+
+.floating-bar.search-active .floating-bar-search {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(74, 144, 217, 0.5);
+  cursor: text;
+}
+
+.floating-bar.search-active .floating-bar-search .search-label {
+  display: none;
+}
+
+.floating-bar.search-active .floating-bar-search .search-inline-input {
+  display: block;
+}
+
+.floating-bar.search-active .floating-bar-search .search-close-btn {
+  display: block;
+}
+
+.floating-bar-hideable {
+  transition: opacity 0.25s ease, width 0.3s ease, padding 0.3s ease;
+}
+
+.search-results-panel {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 6px;
+  background: rgba(30, 30, 30, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
   max-height: 50vh;
   overflow-y: auto;
+  padding: 8px 0;
+}
+
+.floating-bar.search-active .search-results-panel {
+  display: block;
 }
 
 .search-result-item {
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 10px 14px;
   cursor: pointer;
   transition: background 0.15s;
   font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
   border-left: 3px solid transparent;
 }
 
 .search-result-item:hover {
-  background: #f0f4ff;
+  background: rgba(74, 144, 217, 0.2);
   border-left-color: #4a90d9;
 }
 
 .search-result-item .search-result-view {
   font-size: 11px;
-  color: #888;
+  color: rgba(255, 255, 255, 0.5);
   margin-top: 2px;
 }
 
 .search-no-results {
   text-align: center;
-  color: #999;
-  padding: 24px 0;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 20px 0;
   font-size: 14px;
 }
 
@@ -843,7 +953,6 @@ body {
   box-shadow: 0 10px 30px rgba(0,0,0,0.18);
   position: fixed;
   z-index: 9999;
-  pointer-events: none;
 }
 .clarify-zone-item {
   padding: 10px 12px;
