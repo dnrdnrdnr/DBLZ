@@ -3,6 +3,7 @@ let appData = {
   brainDump: [],
   brainDumpHistory: {}, // { "YYYY-MM-DD": [ { id, text, dateAdded } ], ... }
   todos: [], // { id, text, quadrant, period, status, createdAt, dueDate }
+  workspaces: [], // { id, name }
   lastUpdated: null
 };
 
@@ -22,8 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // 잡생각 버튼 표시
   setTimeout(() => {
     updateTrashButton();
+    updateCompletedButtonCount();
     const trashBtn = document.getElementById('trashButton');
     if (trashBtn) trashBtn.style.display = 'flex';
+    const completedBtn = document.getElementById('completedButton');
+    if (completedBtn) completedBtn.style.display = 'flex';
   }, 100);
 });
 
@@ -65,7 +69,12 @@ function setupEventListeners() {
   // 매트릭스 사분면 드래그 앤 드롭
   setupMatrixDragDrop();
   setupClearQuadrant4Button();
-  
+  document.getElementById('immediateExecBtn')?.addEventListener('click', () => switchView('execution'));
+
+  setupTimePickerModal();
+  setupWherePicker();
+  setupWorkspaceSheet();
+
   // 모달 닫기 버튼
   document.querySelectorAll('.close').forEach(close => {
     close.addEventListener('click', (e) => {
@@ -86,8 +95,13 @@ function setupEventListeners() {
   });
   
   document.getElementById('saveTodoBtn').addEventListener('click', saveTodo);
-  document.getElementById('cancelTodoBtn').addEventListener('click', closeModals);
-  
+  document.getElementById('todoTextInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveTodo();
+    }
+  });
+
   // 액션 버튼
   document.querySelectorAll('.action-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -106,6 +120,8 @@ function setupEventListeners() {
         updateTrashButton();
       } else if (modal.id === 'datePickerModal') {
         modal.classList.remove('active');
+      } else if (modal.id === 'completedModal') {
+        modal.classList.remove('active');
       } else {
         closeModals();
       }
@@ -117,7 +133,14 @@ function setupEventListeners() {
   if (trashButton) {
     trashButton.addEventListener('click', openTrashModal);
   }
-  
+  const completedButton = document.getElementById('completedButton');
+  if (completedButton) {
+    completedButton.addEventListener('click', openCompletedModal);
+  }
+  document.getElementById('closeCompletedBtn')?.addEventListener('click', () => {
+    document.getElementById('completedModal')?.classList.remove('active');
+  });
+
   // 휴지통 모달 버튼들
   const closeTrashBtn = document.getElementById('closeTrashBtn');
   const emptyTrashBtn = document.getElementById('emptyTrashBtn');
@@ -195,6 +218,8 @@ function switchView(viewName) {
     case 'execution':
       targetView = document.getElementById('executionView');
       document.querySelector('.view-tab[data-view="execution"]').classList.add('active');
+      updateExecutionView();
+      renderExecutionTodayList();
       break;
     case 'clarify':
       targetView = document.getElementById('clarifyView');
@@ -1195,8 +1220,8 @@ function updateMatrixView() {
     const list = document.querySelector(`.todo-list[data-quadrant="${quadrant}"]`);
     list.innerHTML = '';
     
-    const quadrantTodos = appData.todos.filter(todo => 
-      todo.quadrant == quadrant && todo.status !== 'trash'
+    const quadrantTodos = appData.todos.filter(todo =>
+      todo.quadrant == quadrant && todo.status !== 'trash' && todo.status !== 'done'
     );
     
     if (quadrantTodos.length === 0) {
@@ -1211,6 +1236,577 @@ function updateMatrixView() {
   
   // 휴지통 버튼 업데이트
   updateTrashButton();
+}
+
+// 리스팅된 테스크 id (왼쪽에서 제외, 오른쪽 리스트에만 표시)
+let executionListedIds = new Set();
+
+// 실행 뷰: 우위·단기 테스크 리스트 + 오늘 언제/어디서 시작할지
+function updateExecutionView() {
+  const emptyEl = document.getElementById('executionEmpty');
+  const listEl = document.getElementById('executionList');
+  if (!emptyEl || !listEl) return;
+
+  const quadrant1Todos = (appData.todos || []).filter(t =>
+    t.quadrant === 1 && t.status !== 'trash' && t.status !== 'done' && !executionListedIds.has(String(t.id))
+  );
+
+  const noWorkspaceHint = document.getElementById('executionNoWorkspaceHint');
+  const addWorkspaceBtn = document.getElementById('executionAddWorkspaceBtn');
+  if (noWorkspaceHint) noWorkspaceHint.style.display = (appData.workspaces || []).length === 0 ? 'block' : 'none';
+  if (addWorkspaceBtn && !addWorkspaceBtn._bound) {
+    addWorkspaceBtn._bound = true;
+    addWorkspaceBtn.addEventListener('click', openWorkspaceSheet);
+  }
+
+  const hasAnyQ1 = (appData.todos || []).some(t => t.quadrant === 1 && t.status !== 'trash');
+  if (quadrant1Todos.length === 0 && !hasAnyQ1) {
+    emptyEl.style.display = 'block';
+    listEl.style.display = 'none';
+    listEl.innerHTML = '';
+    const actionsEl = document.getElementById('executionActions');
+    if (actionsEl) actionsEl.style.display = 'none';
+    document.getElementById('executionTodayListWrap')?.classList.remove('visible');
+    executionListedIds.clear();
+    return;
+  }
+  if (quadrant1Todos.length === 0) {
+    emptyEl.style.display = 'none';
+    listEl.style.display = 'block';
+    listEl.innerHTML = '<p class="execution-all-listed">모든 테스크가 리스팅되었어요. 오른쪽 리스트를 확인하세요.</p>';
+    const actionsEl = document.getElementById('executionActions');
+    if (actionsEl) actionsEl.style.display = 'block';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  listEl.style.display = 'block';
+  const actionsEl = document.getElementById('executionActions');
+  if (actionsEl) actionsEl.style.display = 'block';
+  listEl.innerHTML = '';
+
+  quadrant1Todos.forEach(todo => {
+    const whenVal = todo.execWhen ?? '';
+    const li = document.createElement('li');
+    li.className = 'execution-list-item';
+    li.dataset.id = todo.id;
+    li.innerHTML = `
+      <div class="execution-item-text">${escapeHtml(todo.text)}</div>
+      <div class="execution-item-schedule">
+        <label class="exec-schedule-label">
+          <span>언제</span>
+          <button type="button" class="exec-when-btn" data-id="${todo.id}">${escapeHtml(formatTimeForDisplay(whenVal))}</button>
+        </label>
+        <label class="exec-schedule-label">
+          <span>어디서</span>
+          <button type="button" class="exec-where-btn" data-id="${todo.id}">${escapeHtml(todo.execWhere || '어디서 선택')}</button>
+        </label>
+      </div>
+    `;
+    listEl.appendChild(li);
+
+    const whenBtn = li.querySelector('.exec-when-btn');
+    const whereBtn = li.querySelector('.exec-where-btn');
+    whenBtn.addEventListener('click', () => openTimePicker(todo.id, whenBtn));
+    whereBtn.addEventListener('click', (e) => openWherePicker(todo.id, whereBtn, e));
+  });
+
+  // 리스팅 버튼 바인딩 (한 번만)
+  const listingBtn = document.getElementById('executionListingBtn');
+  if (listingBtn && !listingBtn._bound) {
+    listingBtn._bound = true;
+    listingBtn.addEventListener('click', runExecutionListing);
+  }
+  const alarmBtn = document.getElementById('executionAlarmBtn');
+  if (alarmBtn && !alarmBtn._bound) {
+    alarmBtn._bound = true;
+    alarmBtn.addEventListener('click', requestExecutionAlarmPermission);
+  }
+}
+
+// 시간 표시 포맷 (09:00 → "오전 9시"). 미설정 시 "언제 선택"
+function formatTimeForDisplay(whenStr) {
+  if (!whenStr || typeof whenStr !== 'string') return '언제 선택';
+  const s = whenStr.trim();
+  if (!s) return '언제 선택';
+  const match = /(\d{1,2}):(\d{2})/.exec(s);
+  if (!match) return '언제 선택';
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10) || 0;
+  const minStr = m === 30 ? ' 30분' : '';
+  if (h === 0) return '오전 12시' + minStr;
+  if (h < 12) return '오전 ' + h + '시' + minStr;
+  if (h === 12) return '오후 12시' + minStr;
+  return '오후 ' + (h - 12) + '시' + minStr;
+}
+
+// 30분 단위 시간 옵션 (00:00 ~ 23:30)
+function getTimePickerOptions() {
+  const opts = [];
+  for (let h = 0; h < 24; h++) {
+    opts.push({ value: (h < 10 ? '0' : '') + h + ':00', label: formatTimeForDisplay((h < 10 ? '0' : '') + h + ':00') });
+    opts.push({ value: (h < 10 ? '0' : '') + h + ':30', label: formatTimeForDisplay((h < 10 ? '0' : '') + h + ':30') });
+  }
+  return opts;
+}
+
+let currentTimePickerTodoId = null;
+let currentTimePickerButton = null;
+
+function execWhenToHHmm(whenStr) {
+  const min = parseExecWhenToMinutes(whenStr);
+  if (min === 9999) return '';
+  const h = Math.floor(min / 60) % 24;
+  const m = min % 60;
+  return (h < 10 ? '0' : '') + h + ':' + (m === 30 ? '30' : '00');
+}
+
+function openTimePicker(todoId, buttonEl) {
+  currentTimePickerTodoId = todoId;
+  currentTimePickerButton = buttonEl;
+  const todo = appData.todos.find(x => String(x.id) === String(todoId));
+  const raw = (todo && todo.execWhen) ?? '';
+  const current = /^\d{1,2}:\d{2}$/.test(String(raw).trim()) ? raw.trim() : execWhenToHHmm(raw);
+  const modal = document.getElementById('timePickerModal');
+  const listEl = document.getElementById('timePickerList');
+  if (!modal || !listEl) return;
+  listEl.innerHTML = '';
+  const opts = getTimePickerOptions();
+  opts.forEach(opt => {
+    const li = document.createElement('li');
+    li.className = 'time-picker-item' + (opt.value === current ? ' selected' : '');
+    li.dataset.value = opt.value;
+    li.textContent = opt.label;
+    listEl.appendChild(li);
+  });
+  modal.classList.add('active');
+  const scrollEl = document.getElementById('timePickerScroll');
+  if (scrollEl && current) {
+    const idx = opts.findIndex(o => o.value === current);
+    const item = listEl.children[idx];
+    if (item) item.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  }
+}
+
+function setupTimePickerModal() {
+  const modal = document.getElementById('timePickerModal');
+  const listEl = document.getElementById('timePickerList');
+  if (!modal || !listEl) return;
+  modal.querySelector('.time-picker-close')?.addEventListener('click', () => modal.classList.remove('active'));
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+  listEl.addEventListener('click', (e) => {
+    const li = e.target.closest('.time-picker-item');
+    if (!li || !currentTimePickerTodoId) return;
+    const value = li.dataset.value;
+    const todo = appData.todos.find(x => String(x.id) === String(currentTimePickerTodoId));
+    if (todo) {
+      todo.execWhen = value;
+      saveData();
+      if (currentTimePickerButton) currentTimePickerButton.textContent = formatTimeForDisplay(value);
+    }
+    modal.classList.remove('active');
+  });
+}
+
+// 어디서 선택 (작업공간 리스트)
+let currentWherePickerTodoId = null;
+let currentWherePickerButton = null;
+
+function openWherePicker(todoId, buttonEl, e) {
+  currentWherePickerTodoId = todoId;
+  currentWherePickerButton = buttonEl;
+  const dd = document.getElementById('wherePickerDropdown');
+  const listEl = document.getElementById('wherePickerList');
+  const addBtn = document.getElementById('wherePickerAddWorkspaceBtn');
+  if (!dd || !listEl) return;
+  listEl.innerHTML = '';
+  const workspaces = appData.workspaces || [];
+  if (workspaces.length === 0) {
+    listEl.innerHTML = '<p class="where-picker-empty">작업공간을 먼저 추가해보세요</p>';
+    addBtn.style.display = 'block';
+  } else {
+    workspaces.forEach(ws => {
+      const li = document.createElement('button');
+      li.type = 'button';
+      li.className = 'where-picker-item';
+      li.textContent = ws.name;
+      li.dataset.id = ws.id;
+      listEl.appendChild(li);
+    });
+    addBtn.style.display = 'block';
+  }
+  const rect = buttonEl.getBoundingClientRect();
+  dd.style.left = rect.left + 'px';
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.minWidth = Math.max(rect.width, 180) + 'px';
+  dd.classList.add('visible');
+}
+
+function setupWherePicker() {
+  const dd = document.getElementById('wherePickerDropdown');
+  const listEl = document.getElementById('wherePickerList');
+  const addBtn = document.getElementById('wherePickerAddWorkspaceBtn');
+  if (!dd) return;
+  document.addEventListener('click', (e) => {
+    if (!dd.classList.contains('visible')) return;
+    if (dd.contains(e.target) || (currentWherePickerButton && currentWherePickerButton.contains(e.target))) return;
+    dd.classList.remove('visible');
+  });
+  listEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.where-picker-item');
+    if (!btn || !currentWherePickerTodoId) return;
+    const name = btn.textContent;
+    const todo = appData.todos.find(x => String(x.id) === String(currentWherePickerTodoId));
+    if (todo) {
+      todo.execWhere = name;
+      saveData();
+      if (currentWherePickerButton) currentWherePickerButton.textContent = name;
+    }
+    dd.classList.remove('visible');
+  });
+  addBtn?.addEventListener('click', () => {
+    dd.classList.remove('visible');
+    openWorkspaceSheet();
+  });
+}
+
+// 작업공간 하단 시트
+function openWorkspaceSheet() {
+  document.getElementById('workspaceSheet')?.classList.add('active');
+  renderWorkspaceList();
+}
+
+function closeWorkspaceSheet() {
+  document.getElementById('workspaceSheet')?.classList.remove('active');
+}
+
+function renderWorkspaceList() {
+  const listEl = document.getElementById('workspaceList');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  (appData.workspaces || []).forEach(ws => {
+    const li = document.createElement('li');
+    li.className = 'workspace-list-item';
+    li.innerHTML = `<span class="workspace-name">${escapeHtml(ws.name)}</span><button type="button" class="workspace-delete-btn" data-id="${ws.id}" title="삭제">×</button>`;
+    listEl.appendChild(li);
+  });
+}
+
+function setupWorkspaceSheet() {
+  const sheet = document.getElementById('workspaceSheet');
+  const backdrop = document.getElementById('workspaceSheetBackdrop');
+  const addBtn = document.getElementById('workspaceAddBtn');
+  const addForm = document.getElementById('workspaceAddForm');
+  const nameInput = document.getElementById('workspaceNameInput');
+  const confirmBtn = document.getElementById('workspaceAddConfirmBtn');
+  if (!sheet) return;
+  backdrop?.addEventListener('click', closeWorkspaceSheet);
+  addBtn?.addEventListener('click', () => {
+    addForm.style.display = 'flex';
+    nameInput.value = '';
+    nameInput.focus();
+  });
+  function addWorkspaceFromInput() {
+    const name = (nameInput.value || '').trim();
+    if (!name) return;
+    if (!appData.workspaces) appData.workspaces = [];
+    appData.workspaces.push({ id: 'ws-' + Date.now(), name });
+    saveData();
+    addForm.style.display = 'none';
+    nameInput.value = '';
+    renderWorkspaceList();
+  }
+  confirmBtn?.addEventListener('click', addWorkspaceFromInput);
+  nameInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addWorkspaceFromInput();
+    }
+  });
+  document.getElementById('workspaceList')?.addEventListener('click', (e) => {
+    const del = e.target.closest('.workspace-delete-btn');
+    if (!del) return;
+    const id = del.dataset.id;
+    appData.workspaces = (appData.workspaces || []).filter(w => w.id !== id);
+    saveData();
+    renderWorkspaceList();
+  });
+}
+
+document.getElementById('workspaceOpenBtn')?.addEventListener('click', openWorkspaceSheet);
+
+// "언제" 문자열을 분 단위(0~1439)로 파싱. 파싱 실패 시 9999
+function parseExecWhenToMinutes(whenStr) {
+  if (!whenStr || typeof whenStr !== 'string') return 9999;
+  const s = whenStr.trim();
+  // "오전 9시", "오후 2시", "오후 2시 30분"
+  const am = /오전\s*(\d+)\s*시(?:\s*(\d+)\s*분)?/.exec(s);
+  const pm = /오후\s*(\d+)\s*시(?:\s*(\d+)\s*분)?/.exec(s);
+  const num = /(\d+)\s*:\s*(\d+)/.exec(s) || /(\d+)\s*시(?:\s*(\d+)\s*분)?/.exec(s);
+  if (am) {
+    let h = parseInt(am[1], 10) || 0;
+    if (h === 12) h = 0;
+    const m = parseInt(am[2], 10) || 0;
+    return (h % 24) * 60 + m;
+  }
+  if (pm) {
+    let h = parseInt(pm[1], 10) || 0;
+    if (h !== 12) h += 12;
+    const m = parseInt(pm[2], 10) || 0;
+    return (h % 24) * 60 + m;
+  }
+  if (num) {
+    const h = parseInt(num[1], 10) || 0;
+    const m = parseInt(num[2], 10) || 0;
+    return (h % 24) * 60 + m;
+  }
+  return 9999;
+}
+
+function showToast(message) {
+  let el = document.getElementById('executionToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'executionToast';
+    el.className = 'execution-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add('visible');
+  clearTimeout(el._toastT);
+  el._toastT = setTimeout(() => {
+    el.classList.remove('visible');
+  }, 2500);
+}
+
+function runExecutionListing() {
+  const leftCandidates = (appData.todos || []).filter(t =>
+    t.quadrant === 1 && t.status !== 'trash' && !executionListedIds.has(String(t.id))
+  );
+
+  const wrap = document.getElementById('executionTodayListWrap');
+  const listEl = document.getElementById('executionTodayList');
+  const leftListEl = document.getElementById('executionList');
+  if (!wrap || !listEl) return;
+
+  if (leftCandidates.length === 0) {
+    const listed = (appData.todos || []).filter(t =>
+      t.quadrant === 1 && t.status !== 'trash' && executionListedIds.has(String(t.id))
+    );
+    if (listed.length === 0) {
+      listEl.innerHTML = '<li class="execution-today-empty">우위·단기 테스크를 추가한 뒤 리스팅해보세요</li>';
+      wrap.classList.add('visible');
+    }
+    return;
+  }
+
+  const hasWhen = (t) => parseExecWhenToMinutes(t.execWhen) < 9999;
+  const hasWhere = (t) => !!(t.execWhere && t.execWhere.trim());
+  const ready = leftCandidates.filter(t => hasWhen(t) && hasWhere(t));
+
+  if (ready.length === 0) {
+    showToast('언제와 어디서를 모두 설정한 테스크만 리스팅됩니다');
+    return;
+  }
+
+  const sorted = [...ready].sort((a, b) =>
+    parseExecWhenToMinutes(a.execWhen) - parseExecWhenToMinutes(b.execWhen)
+  );
+  const sortedIds = new Set(sorted.map(t => String(t.id)));
+  const leftItems = leftListEl ? Array.from(leftListEl.querySelectorAll('.execution-list-item')).filter(li => sortedIds.has(li.dataset.id || '')) : [];
+
+  if (leftItems.length > 0) {
+    leftItems.forEach(li => li.classList.add('execution-item-move-out'));
+    setTimeout(() => {
+      executionListedIds = new Set([...executionListedIds, ...sortedIds]);
+      updateExecutionView();
+      renderExecutionTodayList();
+    }, 500);
+  } else {
+    executionListedIds = new Set([...executionListedIds, ...sortedIds]);
+    updateExecutionView();
+    renderExecutionTodayList();
+  }
+}
+
+let executionTimerTodoId = null;
+let executionTimerStart = null;
+let executionTimerPausedSeconds = 0;
+let executionTimerInterval = null;
+
+function getExecutionTimerElapsedSeconds() {
+  if (!executionTimerTodoId) return 0;
+  if (executionTimerInterval) {
+    return executionTimerPausedSeconds + Math.floor((Date.now() - executionTimerStart) / 1000);
+  }
+  return executionTimerPausedSeconds;
+}
+
+function startExecutionTimer(todoId) {
+  const item = document.querySelector(`#executionTodayList .execution-today-item[data-id="${todoId}"]`);
+  const display = item?.querySelector('.execution-timer-display');
+  const runBtn = item?.querySelector('.execution-run-btn');
+  const pauseBtn = item?.querySelector('.execution-pause-btn');
+  if (!display) return;
+
+  if (executionTimerInterval) {
+    clearInterval(executionTimerInterval);
+    executionTimerInterval = null;
+  }
+  if (executionTimerTodoId === String(todoId) && executionTimerPausedSeconds > 0) {
+    executionTimerStart = Date.now();
+  } else {
+    executionTimerPausedSeconds = 0;
+    executionTimerStart = Date.now();
+  }
+  executionTimerTodoId = String(todoId);
+  display.style.display = 'inline';
+  executionTimerInterval = setInterval(() => {
+    const sec = executionTimerPausedSeconds + Math.floor((Date.now() - executionTimerStart) / 1000);
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    display.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+  }, 1000);
+  if (runBtn) runBtn.textContent = '실행';
+  if (pauseBtn) pauseBtn.style.display = 'inline-block';
+}
+
+function pauseExecutionTimer() {
+  if (!executionTimerInterval || !executionTimerTodoId) return;
+  executionTimerPausedSeconds = executionTimerPausedSeconds + Math.floor((Date.now() - executionTimerStart) / 1000);
+  clearInterval(executionTimerInterval);
+  executionTimerInterval = null;
+  const item = document.querySelector(`#executionTodayList .execution-today-item[data-id="${executionTimerTodoId}"]`);
+  const runBtn = item?.querySelector('.execution-run-btn');
+  const pauseBtn = item?.querySelector('.execution-pause-btn');
+  if (runBtn) runBtn.textContent = '재개';
+  if (pauseBtn) pauseBtn.style.display = 'none';
+}
+
+function stopExecutionTimer() {
+  if (executionTimerInterval) {
+    clearInterval(executionTimerInterval);
+    executionTimerInterval = null;
+  }
+  executionTimerTodoId = null;
+  executionTimerStart = null;
+  executionTimerPausedSeconds = 0;
+}
+
+function completeExecutionTodo(todoId) {
+  const todo = appData.todos.find(x => String(x.id) === String(todoId));
+  if (todo) {
+    todo.status = 'done';
+    todo.completedAt = new Date().toISOString();
+    const elapsed = executionTimerTodoId === String(todoId) ? getExecutionTimerElapsedSeconds() : 0;
+    todo.completedDurationSeconds = elapsed > 0 ? elapsed : undefined;
+    saveData();
+    updateMatrixView();
+  }
+  stopExecutionTimer();
+  updateCompletedButtonCount();
+  renderExecutionTodayList();
+  updateExecutionView();
+}
+
+function renderExecutionTodayList() {
+  const wrap = document.getElementById('executionTodayListWrap');
+  const listEl = document.getElementById('executionTodayList');
+  if (!wrap || !listEl) return;
+
+  const listed = (appData.todos || []).filter(t =>
+    t.quadrant === 1 && t.status !== 'trash' && executionListedIds.has(String(t.id))
+  );
+  const sorted = [...listed].filter(t => t.status !== 'done').sort((a, b) =>
+    parseExecWhenToMinutes(a.execWhen ?? '') - parseExecWhenToMinutes(b.execWhen ?? '')
+  );
+
+  listEl.innerHTML = '';
+  listEl.classList.remove('execution-today-list-animated');
+
+  if (sorted.length === 0) {
+    listEl.innerHTML = '<li class="execution-today-empty">리스팅된 테스크가 없어요</li>';
+    wrap.classList.add('visible');
+    return;
+  }
+
+  sorted.forEach((todo, i) => {
+    const li = document.createElement('li');
+    li.className = 'execution-today-item';
+    li.dataset.id = todo.id;
+    li.style.animationDelay = `${i * 0.08}s`;
+    li.innerHTML = `
+      <div class="execution-today-item-head">
+        <span class="execution-today-time">${escapeHtml(formatTimeForDisplay(todo.execWhen ?? ''))}</span>
+        <span class="execution-today-where">${escapeHtml(todo.execWhere || '') ? ` · ${escapeHtml(todo.execWhere)}` : ''}</span>
+      </div>
+      <div class="execution-today-text">${escapeHtml(todo.text)}</div>
+      <div class="execution-today-actions">
+        <span class="execution-timer-display" style="display:none;">0:00</span>
+        <button type="button" class="execution-run-btn" data-id="${todo.id}">실행</button>
+        <button type="button" class="execution-pause-btn" data-id="${todo.id}" style="display:none;">중지</button>
+        <button type="button" class="execution-done-btn" data-id="${todo.id}">완료</button>
+      </div>
+    `;
+    listEl.appendChild(li);
+
+    li.querySelector('.execution-run-btn').addEventListener('click', () => startExecutionTimer(todo.id));
+    li.querySelector('.execution-pause-btn').addEventListener('click', () => pauseExecutionTimer());
+    li.querySelector('.execution-done-btn').addEventListener('click', () => completeExecutionTodo(todo.id));
+  });
+
+  wrap.classList.add('visible');
+  listEl.classList.add('execution-today-list-animated');
+}
+
+function requestExecutionAlarmPermission() {
+  if (!('Notification' in window)) {
+    alert('이 브라우저는 알림을 지원하지 않습니다.');
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    startExecutionAlarmCheck();
+    return;
+  }
+  Notification.requestPermission().then(p => {
+    if (p === 'granted') startExecutionAlarmCheck();
+    else alert('알림 권한이 필요합니다.');
+  });
+}
+
+let executionAlarmCheckInterval = null;
+const executionNotifiedToday = new Set();
+
+function startExecutionAlarmCheck() {
+  if (executionAlarmCheckInterval) return;
+  executionAlarmCheckInterval = setInterval(checkExecutionAlarms, 60 * 1000);
+  checkExecutionAlarms();
+}
+
+function checkExecutionAlarms() {
+  const now = new Date();
+  const todayKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  (appData.todos || []).filter(t =>
+    t.quadrant === 1 && t.status !== 'trash' && t.execWhen
+  ).forEach(todo => {
+    const key = `${todo.id}-${todayKey}`;
+    if (executionNotifiedToday.has(key)) return;
+    const min = parseExecWhenToMinutes(todo.execWhen);
+    if (min === 9999) return;
+    if (currentMinutes >= min) {
+      executionNotifiedToday.add(key);
+      try {
+        new Notification('오늘 할 일', {
+          body: todo.text + (todo.execWhere ? ` (${todo.execWhere})` : ''),
+          icon: '/icon-192.png'
+        }).onclick = () => window.focus();
+      } catch (_) {
+        new Notification('오늘 할 일', { body: todo.text });
+      }
+    }
+  });
 }
 
 // 매트릭스 터치 드래그 상태 (모바일)
@@ -1320,6 +1916,68 @@ function moveToTrash(todoId) {
 }
 
 // 휴지통 버튼 업데이트
+function updateCompletedButtonCount() {
+  const btn = document.getElementById('completedButton');
+  const countEl = document.getElementById('completedCount');
+  if (btn && countEl) {
+    const n = (appData.todos || []).filter(t => t.status === 'done').length;
+    countEl.textContent = n;
+  }
+}
+
+function formatCompletedDate(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '.' + m + '.' + day;
+}
+
+function formatDuration(seconds) {
+  if (seconds == null || seconds <= 0) return '';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function openCompletedModal() {
+  const modal = document.getElementById('completedModal');
+  if (modal) {
+    updateCompletedModal();
+    modal.classList.add('active');
+  }
+}
+
+function updateCompletedModal() {
+  const listEl = document.getElementById('completedList');
+  if (!listEl) return;
+  const doneTodos = (appData.todos || []).filter(t => t.status === 'done')
+    .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
+  listEl.innerHTML = '';
+  if (doneTodos.length === 0) {
+    listEl.innerHTML = '<p class="completed-empty">완료한 테스크가 없습니다.</p>';
+    return;
+  }
+  doneTodos.forEach(todo => {
+    const div = document.createElement('div');
+    div.className = 'completed-item';
+    div.innerHTML = `
+      <div class="completed-item-text">${escapeHtml(todo.text)}</div>
+      <button type="button" class="completed-item-delete" data-id="${todo.id}" title="삭제">×</button>
+    `;
+    listEl.appendChild(div);
+    div.querySelector('.completed-item-delete').addEventListener('click', () => {
+      todo.status = 'trash';
+      todo.trashedAt = new Date().toISOString();
+      saveData();
+      updateCompletedModal();
+      updateCompletedButtonCount();
+      updateTrashButton();
+    });
+  });
+}
+
 function updateTrashButton() {
   const trashBtn = document.getElementById('trashButton');
   if (trashBtn) {
@@ -1672,6 +2330,9 @@ function loadData() {
   if (!appData.brainDumpHistory) {
     appData.brainDumpHistory = {};
   }
+  if (!Array.isArray(appData.workspaces)) {
+    appData.workspaces = [];
+  }
   // 기존 brainDump 항목에 dateAdded 없으면 오늘로 설정하고 히스토리에 반영
   const today = getTodayDateString();
   if (appData.brainDump && appData.brainDump.length > 0) {
@@ -1733,6 +2394,13 @@ function setupInlineSearch() {
 
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSearch();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      renderSearchResults(input.value);
+      const container = document.getElementById('searchResultsPanel');
+      const first = container?.querySelector('.search-result-item');
+      if (first) first.click();
+    }
   });
 
   document.addEventListener('pointerdown', (e) => {
@@ -1751,7 +2419,7 @@ function renderSearchResults(query) {
     return;
   }
 
-  const viewLabel = { brainDump: '쏟아내기', clarify: '명확화', matrix: '매트릭스', plan: '계획 및 정리', execution: '실행' };
+  const viewLabel = { brainDump: '쏟아내기', clarify: '명확화', matrix: '매트릭스', plan: '계획 및 정리', execution: '오늘 할 일' };
   const results = [];
 
   (appData.brainDump || []).forEach(item => {
@@ -1875,6 +2543,14 @@ function openSettingsModal() {
       }
     });
   }
+
+  const workspaceBtn = document.getElementById('settingsWorkspaceBtn');
+  if (workspaceBtn) {
+    workspaceBtn.onclick = () => {
+      modal.classList.remove('active');
+      openWorkspaceSheet();
+    };
+  }
 }
 
 function initDarkMode() {
@@ -1907,7 +2583,7 @@ function setupFloatingBarBehavior() {
   document.addEventListener('pointerdown', (e) => {
     if (bar.contains(e.target)) return;
     if (e.target.closest('.modal.active')) return;
-    if (barHidden && e.clientY >= window.innerHeight - 80) {
+    if (barHidden && e.clientY >= window.innerHeight - 40) {
       showBar();
       return;
     }

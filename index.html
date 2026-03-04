@@ -20,7 +20,7 @@
         <button type="button" class="view-tab" data-view="clarify">명확화</button>
         <button type="button" class="view-tab" data-view="matrix">매트릭스</button>
         <button type="button" class="view-tab" data-view="plan">계획 및 정리</button>
-        <button type="button" class="view-tab" data-view="execution">실행</button>
+        <button type="button" class="view-tab" data-view="execution">오늘 할 일</button>
       </div>
     </header>
 
@@ -95,7 +95,7 @@
               <h3><span class="quadrant-title-full">우위, 단기</span><span class="quadrant-title-short">우위, 단기</span></h3>
               <span class="quadrant-header-right">
                 <button type="button" class="add-todo-btn add-todo-btn-inline" data-quadrant="1">+</button>
-                <span class="badge">즉시 처리</span>
+                <button type="button" id="immediateExecBtn" class="badge badge-action immediate-exec-btn" title="우위·단기 테스크로 실행 화면 이동">즉시 처리</button>
               </span>
             </div>
             <div class="todo-list" data-quadrant="1"></div>
@@ -153,15 +153,32 @@
       </section>
     </div>
 
-    <!-- 실행 화면 -->
+    <!-- 오늘 할 일: 언제/어디서 입력 후 리스팅 → 시간순 리스트 + 알람 -->
     <div id="executionView" class="view">
       <section class="execution-section">
-        <h2>실행</h2>
-        <p class="subtitle">정리한 테스크를 실행해보세요</p>
-        <div class="execution-content">
-          <p style="text-align: center; color: #999; padding: 40px;">
-            실행 기능은 준비 중입니다.
-          </p>
+        <div class="execution-section-header">
+          <h2>오늘 할 일</h2>
+          <button type="button" id="workspaceOpenBtn" class="icon-btn workspace-open-btn" title="작업공간">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          </button>
+        </div>
+        <p class="subtitle execution-subtitle">언제, 어디서 할지 적고 리스팅하면 시간 순으로 정리돼요</p>
+        <div id="executionNoWorkspaceHint" class="execution-no-workspace-hint" style="display: none;">
+          <button type="button" id="executionAddWorkspaceBtn" class="btn-secondary btn-small">작업공간 추가</button>
+        </div>
+        <div class="execution-layout">
+          <div id="executionContent" class="execution-content execution-form">
+            <p id="executionEmpty" class="execution-empty">우위·단기 테스크가 없습니다. 매트릭스에서 즉시 처리할 일을 추가해보세요.</p>
+            <ul id="executionList" class="execution-list" style="display: none;"></ul>
+            <div id="executionActions" class="execution-actions" style="display: none;">
+              <button type="button" id="executionListingBtn" class="btn-primary execution-listing-btn">리스팅</button>
+              <button type="button" id="executionAlarmBtn" class="btn-secondary execution-alarm-btn" title="시간 되면 알림 받기">알람 켜기</button>
+            </div>
+          </div>
+          <div id="executionTodayListWrap" class="execution-today-list-wrap">
+            <h3 class="execution-today-list-title">오늘 할 일 리스트</h3>
+            <ul id="executionTodayList" class="execution-today-list"></ul>
+          </div>
         </div>
       </section>
     </div>
@@ -184,6 +201,10 @@
         <span class="trash-button-label">잡생각</span>
         <span class="trash-count">0</span>
       </div>
+      <div id="completedButton" class="floating-bar-btn floating-bar-btn-center floating-bar-hideable" title="완료">
+        <span class="completed-button-label">완료</span>
+        <span id="completedCount" class="trash-count">0</span>
+      </div>
       <button id="settingsFloatBtn" class="floating-bar-btn floating-bar-hideable" title="설정">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         <span>설정</span>
@@ -199,7 +220,6 @@
       <input type="text" id="todoTextInput" placeholder="테스크를 입력하세요" />
       <div class="modal-actions">
         <button id="saveTodoBtn" class="btn-primary">저장</button>
-        <button id="cancelTodoBtn" class="btn-secondary">취소</button>
       </div>
     </div>
   </div>
@@ -233,6 +253,18 @@
     </div>
   </div>
 
+  <!-- 완료 목록 모달 -->
+  <div id="completedModal" class="modal">
+    <div class="modal-content completed-modal completed-modal-pop">
+      <span class="close">&times;</span>
+      <h3>완료</h3>
+      <div id="completedList" class="completed-list"></div>
+      <div class="modal-actions">
+        <button id="closeCompletedBtn" class="btn-primary">닫기</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 날짜 선택 팝업 (쏟아내기 화면) -->
   <div id="datePickerModal" class="modal">
     <div class="modal-content date-picker-modal">
@@ -245,6 +277,39 @@
   <!-- 분류 모달 (미사용: 명확화 탭으로 대체) -->
   <div id="categorizeModal" class="modal" aria-hidden="true"></div>
 
+  <!-- 시간 선택 모달 (30분 단위) -->
+  <div id="timePickerModal" class="modal time-picker-modal">
+    <div class="modal-content time-picker-content">
+      <span class="close time-picker-close">&times;</span>
+      <h3>시간 선택</h3>
+      <div class="time-picker-scroll" id="timePickerScroll">
+        <ul id="timePickerList" class="time-picker-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 작업공간 하단 시트 -->
+  <div id="workspaceSheet" class="workspace-sheet">
+    <div class="workspace-sheet-backdrop" id="workspaceSheetBackdrop"></div>
+    <div class="workspace-sheet-panel">
+      <div class="workspace-sheet-header">
+        <h3>작업공간</h3>
+        <button type="button" id="workspaceAddBtn" class="icon-btn workspace-add-btn" title="추가">+</button>
+      </div>
+      <ul id="workspaceList" class="workspace-list"></ul>
+      <div id="workspaceAddForm" class="workspace-add-form" style="display: none;">
+        <input type="text" id="workspaceNameInput" placeholder="작업공간 이름" maxlength="30">
+        <button type="button" id="workspaceAddConfirmBtn" class="btn-primary btn-small">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 어디서 선택 드롭다운 (작업공간 리스트) -->
+  <div id="wherePickerDropdown" class="where-picker-dropdown">
+    <div id="wherePickerList" class="where-picker-list"></div>
+    <button type="button" id="wherePickerAddWorkspaceBtn" class="where-picker-add-btn">작업공간 추가</button>
+  </div>
+
   <!-- 설정 모달 -->
   <div id="settingsModal" class="modal">
     <div class="modal-content settings-modal">
@@ -254,6 +319,12 @@
         <div class="settings-item">
           <label for="settingDarkMode">다크 모드</label>
           <input type="checkbox" id="settingDarkMode">
+        </div>
+        <div class="settings-item">
+          <label>작업공간</label>
+          <button type="button" id="settingsWorkspaceBtn" class="icon-btn settings-workspace-btn" title="작업공간 설정">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          </button>
         </div>
         <div class="settings-item">
           <label>전체 초기화</label>
