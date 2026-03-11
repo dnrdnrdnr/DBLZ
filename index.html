@@ -85,14 +85,16 @@
       </section>
     </div>
 
-    <!-- 사분면 화면 (쏟아내기 분류 후 테스크) -->
+    <!-- 사분면 화면 (표 형태: 위쪽 단기/장기, 왼쪽 우위/열위) -->
     <div id="matrixView" class="view">
       <section class="matrix-section">
-        <div class="matrix-grid">
-          <!-- 중요하고 단기 -->
+        <div class="matrix-grid matrix-table">
+          <div class="matrix-corner"></div>
+          <div class="matrix-col-header">단기</div>
+          <div class="matrix-col-header">장기</div>
+          <div class="matrix-row-header">우위</div>
           <div class="matrix-quadrant quadrant-1" data-quadrant="1">
             <div class="quadrant-header">
-              <h3><span class="quadrant-title-full">우위, 단기</span><span class="quadrant-title-short">우위, 단기</span></h3>
               <span class="quadrant-header-right">
                 <button type="button" class="add-todo-btn add-todo-btn-inline" data-quadrant="1">+</button>
                 <button type="button" id="immediateExecBtn" class="badge badge-action immediate-exec-btn" title="우위·단기 테스크로 실행 화면 이동">즉시 처리</button>
@@ -100,11 +102,8 @@
             </div>
             <div class="todo-list" data-quadrant="1"></div>
           </div>
-
-          <!-- 중요하지만 긴급하지 않음 -->
           <div class="matrix-quadrant quadrant-2" data-quadrant="2">
             <div class="quadrant-header">
-              <h3><span class="quadrant-title-full">우위, 장기</span><span class="quadrant-title-short">우위, 장기</span></h3>
               <span class="quadrant-header-right">
                 <button type="button" class="add-todo-btn add-todo-btn-inline" data-quadrant="2">+</button>
                 <span class="badge">계획</span>
@@ -112,11 +111,9 @@
             </div>
             <div class="todo-list" data-quadrant="2"></div>
           </div>
-
-          <!-- 단기 열위 -->
+          <div class="matrix-row-header">열위</div>
           <div class="matrix-quadrant quadrant-3" data-quadrant="3">
             <div class="quadrant-header">
-              <h3><span class="quadrant-title-full">단기, 열위</span><span class="quadrant-title-short">단기, 열위</span></h3>
               <span class="quadrant-header-right">
                 <button type="button" class="add-todo-btn add-todo-btn-inline" data-quadrant="3">+</button>
                 <span class="badge">위임</span>
@@ -124,11 +121,8 @@
             </div>
             <div class="todo-list" data-quadrant="3"></div>
           </div>
-
-          <!-- 중요하지도 단기하지도 않음 -->
           <div class="matrix-quadrant quadrant-4" data-quadrant="4">
             <div class="quadrant-header">
-              <h3><span class="quadrant-title-full">기타</span><span class="quadrant-title-short">기타</span></h3>
               <span class="quadrant-header-right">
                 <button type="button" class="add-todo-btn add-todo-btn-inline" data-quadrant="4">+</button>
                 <button type="button" id="clearQuadrant4Btn" class="badge badge-action" title="기타 사분면 테스크 전체 삭제">삭제</button>
@@ -185,29 +179,32 @@
     </div>
     </main>
 
-    <!-- 하단 플로팅 바: 검색 · 잡생각 · 설정 -->
-    <div class="floating-bar" id="floatingBar">
-      <div class="floating-bar-peek"></div>
-      <!-- 검색 결과: 바 위에 뜸 -->
-      <div id="searchResultsPanel" class="search-results-panel"></div>
-      <!-- 검색 버튼 → 인라인 검색창 전환 -->
-      <div class="floating-bar-search" id="floatingSearch">
-        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <span class="search-label">검색</span>
-        <input type="text" id="searchInput" class="search-inline-input" placeholder="검색..." autocomplete="off">
-        <button id="searchCloseBtn" class="search-close-btn" type="button">&times;</button>
+    <!-- 우측 하단 도구: 공구 아이콘 + 펼치면 가로 바 (검색 · 잡생각 · 완료 · 설정) -->
+    <div class="tool-fab-wrap" id="toolFabWrap">
+      <div class="tool-bar floating-bar" id="floatingBar">
+        <div id="searchResultsPanel" class="search-results-panel"></div>
+        <div class="floating-bar-search" id="floatingSearch">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span class="search-label">검색</span>
+          <input type="text" id="searchInput" class="search-inline-input" placeholder="검색..." autocomplete="off">
+          <button id="searchCloseBtn" class="search-close-btn" type="button">&times;</button>
+        </div>
+        <div id="trashButton" class="floating-bar-btn floating-bar-btn-center floating-bar-hideable" title="잡생각">
+          <span class="trash-button-label">잡생각</span>
+          <span class="trash-count">0</span>
+        </div>
+        <div id="completedButton" class="floating-bar-btn floating-bar-btn-center floating-bar-hideable" title="완료">
+          <span class="completed-button-label">완료</span>
+          <span id="completedCount" class="trash-count">0</span>
+        </div>
+        <button id="settingsFloatBtn" class="floating-bar-btn floating-bar-hideable" title="설정">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>설정</span>
+        </button>
       </div>
-      <div id="trashButton" class="floating-bar-btn floating-bar-btn-center floating-bar-hideable" title="잡생각">
-        <span class="trash-button-label">잡생각</span>
-        <span class="trash-count">0</span>
-      </div>
-      <div id="completedButton" class="floating-bar-btn floating-bar-btn-center floating-bar-hideable" title="완료">
-        <span class="completed-button-label">완료</span>
-        <span id="completedCount" class="trash-count">0</span>
-      </div>
-      <button id="settingsFloatBtn" class="floating-bar-btn floating-bar-hideable" title="설정">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span>설정</span>
+      <button type="button" id="floatingToggleBtn" class="floating-main-btn" title="도구">
+        <svg class="arrow-icon arrow-left" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="14 6 8 12 14 18"/></svg>
+        <svg class="arrow-icon arrow-right" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 6 16 12 10 18"/></svg>
       </button>
     </div>
   </div>

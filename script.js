@@ -172,6 +172,7 @@ function setupEventListeners() {
 
   // 인라인 검색 설정
   setupInlineSearch();
+  setupToolActionBar();
 
   // 설정 버튼
   const settingsFloatBtn = document.getElementById('settingsFloatBtn');
@@ -2363,8 +2364,8 @@ function setupInlineSearch() {
   if (!bar || !searchArea || !input) return;
 
   function openSearch() {
+    document.getElementById('toolFabWrap')?.classList.add('bar-open');
     bar.classList.add('search-active');
-    bar.classList.remove('bar-hidden');
     input.value = '';
     renderSearchResults('');
     setTimeout(() => input.focus(), 350);
@@ -2405,8 +2406,19 @@ function setupInlineSearch() {
 
   document.addEventListener('pointerdown', (e) => {
     if (!bar.classList.contains('search-active')) return;
-    if (bar.contains(e.target)) return;
+    if (document.getElementById('toolFabWrap')?.contains(e.target)) return;
     closeSearch();
+  });
+}
+
+function setupToolActionBar() {
+  const wrap = document.getElementById('toolFabWrap');
+  const toggleBtn = document.getElementById('floatingToggleBtn');
+  if (!wrap || !toggleBtn) return;
+
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    wrap.classList.toggle('bar-open');
   });
 }
 
@@ -2559,55 +2571,21 @@ function initDarkMode() {
   }
 }
 
-// ── 플로팅 바 숨김/표시 ──
+// ── 우측 하단 도구 바: 바깥 클릭 시 접기 ──
 function setupFloatingBarBehavior() {
+  const wrap = document.getElementById('toolFabWrap');
   const bar = document.getElementById('floatingBar');
-  if (!bar) return;
-
-  let barHidden = false;
-  let barTouchStartY = 0;
-
-  function hideBar() {
-    if (barHidden) return;
-    if (bar.classList.contains('search-active')) return;
-    barHidden = true;
-    bar.classList.add('bar-hidden');
-  }
-
-  function showBar() {
-    if (!barHidden) return;
-    barHidden = false;
-    bar.classList.remove('bar-hidden');
-  }
+  if (!wrap || !bar) return;
 
   document.addEventListener('pointerdown', (e) => {
-    if (bar.contains(e.target)) return;
+    if (wrap.contains(e.target)) return;
     if (e.target.closest('.modal.active')) return;
-    if (barHidden && e.clientY >= window.innerHeight - 40) {
-      showBar();
-      return;
-    }
-    hideBar();
-  });
-
-  bar.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    barTouchStartY = e.clientY;
-  });
-
-  bar.addEventListener('pointerup', (e) => {
-    e.stopPropagation();
-    const dy = barTouchStartY - e.clientY;
-    if (barHidden && dy > 10) {
-      showBar();
-    }
-  });
-
-  bar.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (barHidden) {
-      showBar();
-      e.preventDefault();
+    wrap.classList.remove('bar-open');
+    if (bar.classList.contains('search-active')) {
+      bar.classList.remove('search-active');
+      document.getElementById('searchInput').value = '';
+      const panel = document.getElementById('searchResultsPanel');
+      if (panel) panel.innerHTML = '';
     }
   });
 }
