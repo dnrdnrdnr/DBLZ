@@ -27,11 +27,11 @@
     <!-- 본문: 모바일에서 스와이프 시 화면 전환 -->
     <main class="app-main">
     <div class="views-scroll" id="viewsScroll">
-    <!-- 매일 쏟아내기 화면 -->
+    <!-- 매일 쏟아내기 화면: 쏟아낸 테스크 + 날짜 + 한줄 입력 통합 -->
     <div id="brainDumpView" class="view active">
       <section class="brain-dump-section">
-        <div class="brain-dump-layout">
-          <div class="dump-panel dump-panel-list">
+        <div class="brain-dump-layout brain-dump-merged">
+          <div class="dump-panel dump-panel-list dump-panel-unified">
             <div class="dump-panel-header">
               <h3>쏟아낸 테스크 <span id="dumpCount" class="dump-count">0</span></h3>
               <div class="dump-panel-actions">
@@ -40,18 +40,15 @@
               </div>
             </div>
             <ul id="brainDumpList" class="dump-item-list"></ul>
-          </div>
-          <div class="dump-panel dump-panel-input">
-            <h2>매일 쏟아내기</h2>
-            <div class="date-picker-row">
+            <div class="dump-date-row date-picker-row">
               <span id="brainDumpDateText" class="brain-dump-date-text"></span>
               <button type="button" id="brainDumpDateBtn" class="date-picker-btn" title="날짜 선택">
                 <span id="brainDumpDateBtnLabel">오늘</span>
               </button>
             </div>
-            <p class="subtitle" id="brainDumpSubtitle">테스크를 적고 추가한 뒤, 날짜 버튼을 눌러 다른 날을 확인할 수 있어요</p>
-            <div class="brain-dump-input" id="brainDumpInputWrap">
-              <textarea id="brainDumpInput" placeholder="테스크 입력 후 Enter 또는 추가&#10;예: 보고서 작성, 회의 준비"></textarea>
+            <p class="subtitle dump-subtitle" id="brainDumpSubtitle">테스크를 적고 추가한 뒤, 날짜 버튼을 눌러 다른 날을 확인할 수 있어요</p>
+            <div class="brain-dump-input brain-dump-input-row" id="brainDumpInputWrap">
+              <input type="text" id="brainDumpInput" placeholder="테스크 입력 후 Enter 또는 추가" />
               <button id="addBrainDumpBtn" class="btn-primary">추가</button>
             </div>
           </div>
