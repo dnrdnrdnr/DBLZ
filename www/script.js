@@ -53,6 +53,14 @@ function setupEventListeners() {
   document.getElementById('clearBrainDumpBtn').addEventListener('click', clearBrainDump);
   document.getElementById('brainDumpDateBtn').addEventListener('click', openDatePickerModal);
 
+  // 쏟아내기: 모바일에서 키보드 포커스 시 배너 축소·쏟아낸 테스크 상단 노출
+  const brainDumpSection = document.querySelector('.brain-dump-section');
+  const brainDumpInput = document.getElementById('brainDumpInput');
+  if (brainDumpSection && brainDumpInput) {
+    brainDumpInput.addEventListener('focus', () => brainDumpSection.classList.add('keyboard-open'));
+    brainDumpInput.addEventListener('blur', () => brainDumpSection.classList.remove('keyboard-open'));
+  }
+
   // 분류 버튼
   document.getElementById('undoSwipeBtn').addEventListener('click', undoLastSwipe);
   document.getElementById('nextStepBtn').addEventListener('click', nextCategorizeStep);
